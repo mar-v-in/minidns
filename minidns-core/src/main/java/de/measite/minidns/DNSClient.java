@@ -38,6 +38,7 @@ public class DNSClient extends AbstractDNSClient {
         addDnsServerLookupMechanism(AndroidUsingReflection.INSTANCE);
         addDnsServerLookupMechanism(HardcodedDNSServerAddresses.INSTANCE);
     }
+    private int udpPayloadSize = 512;
 
     public DNSClient(DNSCache dnsCache) {
         super(dnsCache);
@@ -59,6 +60,7 @@ public class DNSClient extends AbstractDNSClient {
         message.setQuestions(new Question[]{q});
         message.setRecursionDesired(true);
         message.setId(random.nextInt());
+        message.announceUdpPayloadSize(udpPayloadSize);
         byte[] buf = message.toArray();
 
         // TOOD Use a try-with-resource statement here once miniDNS minimum
@@ -73,6 +75,9 @@ public class DNSClient extends AbstractDNSClient {
             packet = new DatagramPacket(new byte[bufferSize], bufferSize);
             socket.receive(packet);
             dnsMessage = new DNSMessage(packet.getData());
+            if (dnsMessage.isTruncated()) {
+                // TODO: retry with TCP
+            }
             if (dnsMessage.getId() != message.getId()) {
                 return null;
             }
@@ -153,5 +158,13 @@ public class DNSClient extends AbstractDNSClient {
 
     public static synchronized boolean removeDNSServerLookupMechanism(DNSServerLookupMechanism dnsServerLookup) {
         return LOOKUP_MECHANISMS.remove(dnsServerLookup);
+    }
+
+    public int getUdpPayloadSize() {
+        return udpPayloadSize;
+    }
+
+    public void setUdpPayloadSize(int udpPayloadSize) {
+        this.udpPayloadSize = udpPayloadSize;
     }
 }
