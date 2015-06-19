@@ -24,7 +24,7 @@ import java.io.IOException;
 public class DNSKEY implements Data {
     /**
      * Whether the key should be used as a secure entry point key.
-     * 
+     *
      * see RFC 3757
      */
     public static final short FLAG_SECURE_ENTRY_POINT = 0x1;
@@ -59,6 +59,11 @@ public class DNSKEY implements Data {
      */
     public final byte[] key;
 
+    /**
+     * This DNSKEY's key tag. Calculated just-in-time when using {@link #getKeyTag()}
+     */
+    private Integer keyTag;
+
     public DNSKEY(DataInputStream dis, byte[] data, int length) throws IOException {
         flags = dis.readShort();
         protocol = dis.readByte();
@@ -70,6 +75,28 @@ public class DNSKEY implements Data {
     @Override
     public TYPE getType() {
         return TYPE.DNSKEY;
+    }
+
+    /**
+     * Retrieve the key tag identifying this DNSKEY.
+     * The key tag is used within the DS and RRSIG record to distinguish multiple keys for the same name.
+     *
+     * This implementation is based on the reference implementation shown in RFC 4034 Appendix B.
+     *
+     * @return this DNSKEY's key tag
+     */
+    public /* unsigned short */ int getKeyTag() {
+        if (keyTag == null) {
+            byte[] recordBytes = toByteArray();
+            long ac = 0;
+
+            for (int i = 0; i < recordBytes.length; ++i) {
+                ac += ((i & 1) > 0) ? recordBytes[i] & 0xFFL : ((recordBytes[i] & 0xFFL) << 8);
+            }
+            ac += (ac >> 16) & 0xFFFF;
+            keyTag = (int) (ac & 0xFFFF);
+        }
+        return keyTag;
     }
 
     @Override
