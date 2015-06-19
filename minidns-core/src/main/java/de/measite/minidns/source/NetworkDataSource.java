@@ -71,6 +71,7 @@ public class NetworkDataSource extends DNSDataSource {
         Socket socket = null;
         try {
             socket = new Socket(address, port);
+            socket.setSoTimeout(timeout);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
             dos.writeShort(buf.length);
             dos.write(buf);
