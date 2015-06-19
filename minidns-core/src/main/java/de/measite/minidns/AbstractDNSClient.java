@@ -135,15 +135,19 @@ public abstract class AbstractDNSClient {
 
         if (dnsMessage == null) return null;
 
-        for (Record record : dnsMessage.getAnswers()) {
-            if (record.isAnswer(q)) {
-                if (cache != null) {
-                    cache.put(q, dnsMessage);
-                }
-                break;
-            }
+        if (cache != null && isResponseCacheable(q, dnsMessage)) {
+            cache.put(q, dnsMessage);
         }
         return dnsMessage;
+    }
+
+    protected boolean isResponseCacheable(Question q, DNSMessage dnsMessage) {
+        for (Record record : dnsMessage.getAnswers()) {
+            if (record.isAnswer(q)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected abstract DNSMessage buildMessage(Question question);

@@ -22,7 +22,7 @@ import java.util.Map;
 
 public class RecursiveDNSClient extends AbstractDNSClient {
 
-    private static final InetAddress[] ROOT_SERVERS;
+    protected static final InetAddress[] ROOT_SERVERS;
     private int maxDepth = 128;
 
     static {
@@ -140,6 +140,11 @@ public class RecursiveDNSClient extends AbstractDNSClient {
             // This should never happen, if it does it's our fault!
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    protected boolean isResponseCacheable(Question q, DNSMessage dnsMessage) {
+        return dnsMessage.authoritativeAnswer;
     }
 
     @Override
