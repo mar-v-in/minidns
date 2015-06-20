@@ -10,29 +10,37 @@
  */
 package de.measite.minidns;
 
+import de.measite.minidns.record.A;
+import de.measite.minidns.record.AAAA;
+import de.measite.minidns.record.CNAME;
+import de.measite.minidns.record.DNSKEY;
+import de.measite.minidns.record.DS;
+import de.measite.minidns.record.Data;
+import de.measite.minidns.record.MX;
+import de.measite.minidns.record.NS;
+import de.measite.minidns.record.NSEC;
+import de.measite.minidns.record.OPT;
+import de.measite.minidns.record.RRSIG;
+import de.measite.minidns.record.SOA;
+import de.measite.minidns.record.SRV;
+import de.measite.minidns.record.TXT;
+import org.junit.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.TimeZone;
+import java.util.TreeMap;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeMap;
-
-import de.measite.minidns.record.OPT;
-import org.junit.Test;
-
-import de.measite.minidns.record.A;
-import de.measite.minidns.record.AAAA;
-import de.measite.minidns.record.CNAME;
-import de.measite.minidns.record.Data;
-import de.measite.minidns.record.MX;
-import de.measite.minidns.record.NS;
-import de.measite.minidns.record.SOA;
-import de.measite.minidns.record.SRV;
-import de.measite.minidns.record.TXT;
 
 public class DNSMessageTest {
 
@@ -193,5 +201,110 @@ public class DNSMessageTest {
         Record opt = arr[0];
         assertEquals(4096, OPT.readEdnsUdpPayloadSize(opt));
         assertEquals(0, OPT.readEdnsVersion(opt));
+    }
+
+    @Test
+    public void testRootDnskeyLookup() throws Exception {
+        DNSMessage m = getMessageFromResource("root-dnskey");
+        assertFalse(m.isAuthoritativeAnswer());
+        assertTrue(m.isRecursionDesired());
+        assertTrue(m.isRecursionAvailable());
+        Record[] answers = m.getAnswers();
+        assertEquals(3, answers.length);
+        for (int i = 0; i < answers.length; i++) {
+            Record answer = answers[i];
+            assertEquals("", answer.getName());
+            assertEquals(19593, answer.getTtl());
+            assertEquals(Record.TYPE.DNSKEY, answer.type);
+            assertEquals(Record.TYPE.DNSKEY, answer.getPayload().getType());
+            DNSKEY dnskey = (DNSKEY) answer.getPayload();
+            assertEquals(3, dnskey.protocol);
+            assertEquals(8, dnskey.algorithm);
+            assertTrue((dnskey.flags & DNSKEY.FLAG_ZONE) > 0);
+            assertEquals(dnskey.getKeyTag(), dnskey.getKeyTag());
+            switch (i) {
+                case 0:
+                    assertTrue((dnskey.flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0);
+                    assertEquals(260, dnskey.key.length);
+                    assertEquals(19036, dnskey.getKeyTag());
+                    break;
+                case 1:
+                    assertEquals(DNSKEY.FLAG_ZONE, dnskey.flags);
+                    assertEquals(132, dnskey.key.length);
+                    assertEquals(48613, dnskey.getKeyTag());
+                    break;
+                case 2:
+                    assertEquals(DNSKEY.FLAG_ZONE, dnskey.flags);
+                    assertEquals(132, dnskey.key.length);
+                    assertEquals(1518, dnskey.getKeyTag());
+                    break;
+            }
+        }
+        Record[] arr = m.getAdditionalResourceRecords();
+        assertEquals(1, arr.length);
+        Record opt = arr[0];
+        assertEquals(512, OPT.readEdnsUdpPayloadSize(opt));
+        assertEquals(0, OPT.readEdnsVersion(opt));
+    }
+
+    @Test
+    public void testComDsAndRrsigLookup() throws Exception {
+        DNSMessage m = getMessageFromResource("com-ds-rrsig");
+        assertFalse(m.isAuthoritativeAnswer());
+        assertTrue(m.isRecursionDesired());
+        assertTrue(m.isRecursionAvailable());
+        Record[] answers = m.getAnswers();
+        assertEquals(2, answers.length);
+
+        assertEquals(Record.TYPE.DS, answers[0].type);
+        assertEquals(Record.TYPE.DS, answers[0].payloadData.getType());
+        DS ds = (DS) answers[0].payloadData;
+        assertEquals(30909, ds.keyTag);
+        assertEquals(8, ds.algorithm);
+        assertEquals(2, ds.digestType);
+        assertEquals("E2D3C916F6DEEAC73294E8268FB5885044A833FC5459588F4A9184CFC41A5766",
+                new BigInteger(1, ds.digest).toString(16).toUpperCase());
+
+        assertEquals(Record.TYPE.RRSIG, answers[1].type);
+        assertEquals(Record.TYPE.RRSIG, answers[1].payloadData.getType());
+        RRSIG rrsig = (RRSIG) answers[1].payloadData;
+        assertEquals(Record.TYPE.DS, rrsig.typeCovered);
+        assertEquals(8, rrsig.algorithm);
+        assertEquals(1, rrsig.labels);
+        assertEquals(86400, rrsig.originalTtl);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("YYYYMMddHHmmss");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        assertEquals("20150629170000", dateFormat.format(rrsig.signatureExpiration));
+        assertEquals("20150619160000", dateFormat.format(rrsig.signatureInception));
+        assertEquals(48613, rrsig.keyTag);
+        assertEquals("", rrsig.signerName);
+        assertEquals(128, rrsig.signature.length);
+
+        Record[] arr = m.getAdditionalResourceRecords();
+        assertEquals(1, arr.length);
+        Record opt = arr[0];
+        assertEquals(512, OPT.readEdnsUdpPayloadSize(opt));
+        assertEquals(0, OPT.readEdnsVersion(opt));
+        assertTrue((OPT.readEdnsFlags(opt) & OPT.FLAG_DNSSEC_OK) > 0);
+    }
+
+    @Test
+    public void testExampleNsecLookup() throws Exception {
+        DNSMessage m = getMessageFromResource("example-nsec");
+        Record[] answers = m.getAnswers();
+        assertEquals(1, answers.length);
+        assertEquals(Record.TYPE.NSEC, answers[0].type);
+        assertEquals(Record.TYPE.NSEC, answers[0].payloadData.getType());
+        NSEC nsec = (NSEC) answers[0].getPayload();
+        assertEquals("www.example.com", nsec.next);
+        ArrayList<Record.TYPE> types = new ArrayList<>(Arrays.asList(
+                Record.TYPE.A, Record.TYPE.NS, Record.TYPE.SOA, Record.TYPE.TXT,
+                Record.TYPE.AAAA, Record.TYPE.RRSIG, Record.TYPE.NSEC, Record.TYPE.DNSKEY));
+
+        for (Record.TYPE type : nsec.types) {
+            assertTrue(types.remove(type));
+        }
+
+        assertTrue(types.isEmpty());
     }
 }
