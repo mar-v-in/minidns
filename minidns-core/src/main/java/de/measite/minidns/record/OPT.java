@@ -62,6 +62,10 @@ public class OPT implements Data {
         return record.clazzValue;
     }
 
+    public static int readEdnsFlags(Record record) {
+        return (int) (record.ttl & 0xffff);
+    }
+
     public static String optRecordToString(Record record) {
         StringBuilder sb = new StringBuilder("EDNS: version: ")
                 .append(readEdnsVersion(record))
