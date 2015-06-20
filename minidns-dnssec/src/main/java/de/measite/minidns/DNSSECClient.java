@@ -36,8 +36,7 @@ public class DNSSECClient extends RecursiveDNSClient {
     @Override
     public DNSMessage query(Question q, InetAddress address, int port) {
         DNSMessage dnsMessage = super.query(q, address, port);
-        if (dnsMessage.authoritativeAnswer) {
-            LOGGER.info(q.toString());
+        if (dnsMessage.authoritativeAnswer && !dnsMessage.authenticData) {
             verify(dnsMessage);
         }
         return dnsMessage;
@@ -62,7 +61,11 @@ public class DNSSECClient extends RecursiveDNSClient {
                     records.add(record);
                 }
             }
-            if (!q.name.equals(rrsig.signerName) || q.type != Record.TYPE.DNSKEY) {
+            if (sigRecord.name.isEmpty() ? rrsig.labels != 0 : sigRecord.name.split("\\.").length != rrsig.labels) {
+                // TODO: Hmm...
+                LOGGER.info("TODO: " + sigRecord);
+                dnsMessage.authenticData = false;
+            } else if (!q.name.equals(rrsig.signerName) || q.type != Record.TYPE.DNSKEY) {
                 DNSMessage verify = query(rrsig.signerName, Record.TYPE.DNSKEY);
                 for (Record answer : verify.answers) {
                     if (answer.type == Record.TYPE.DNSKEY && ((DNSKEY) answer.payloadData).getKeyTag() == rrsig.keyTag) {
