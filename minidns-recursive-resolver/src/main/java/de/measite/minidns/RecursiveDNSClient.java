@@ -18,6 +18,10 @@ import de.measite.minidns.record.NS;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class RecursiveDNSClient extends AbstractDNSClient {
@@ -80,18 +84,32 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         if (resMessage == null || resMessage.authoritativeAnswer) {
             return resMessage;
         }
-        for (Record record : resMessage.nameserverRecords) {
-            if (record.type == TYPE.NS) {
-                String name = ((NS) record.payloadData).name;
-                InetAddress target = searchAdditional(resMessage, name);
-                if (target == null && !(q.name.equals(name) && q.type == TYPE.A)) {
-                    target = resolveIpRecursive(depth + 1, name);
-                }
+        List<Record> authorities = new ArrayList<Record>(Arrays.asList(resMessage.nameserverRecords));
+
+        // Glued NS first
+        for (Iterator<Record> iterator = authorities.iterator(); iterator.hasNext(); ) {
+            Record record = iterator.next();
+            if (record.type != TYPE.NS) {
+                iterator.remove();
+                continue;
+            }
+            String name = ((NS) record.payloadData).name;
+            InetAddress target = searchAdditional(resMessage, name);
+            if (target != null) {
+                DNSMessage recursive = queryRecursive(depth + 1, q, target);
+                if (recursive != null) return recursive;
+                iterator.remove();
+            }
+        }
+
+        // Try non-glued NS
+        for (Record record : authorities) {
+            String name = ((NS) record.payloadData).name;
+            if (!q.name.equals(name) || q.type != TYPE.A) {
+                InetAddress target = resolveIpRecursive(depth + 1, name);
                 if (target != null) {
                     DNSMessage recursive = queryRecursive(depth + 1, q, target);
-                    if (recursive != null) {
-                        return recursive;
-                    }
+                    if (recursive != null) return recursive;
                 }
             }
         }
