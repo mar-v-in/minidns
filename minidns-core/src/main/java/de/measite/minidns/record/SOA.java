@@ -78,4 +78,17 @@ public class SOA implements Data {
     public byte[] toByteArray() {
         throw new UnsupportedOperationException("Not implemented yet");
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder()
+                .append(mname).append(". ")
+                .append(rname).append(". ")
+                .append(serial).append(' ')
+                .append(refresh).append(' ')
+                .append(retry).append(' ')
+                .append(expire).append(' ')
+                .append(minimum).append(' ');
+        return sb.toString();
+    }
 }

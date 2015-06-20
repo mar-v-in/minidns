@@ -45,7 +45,7 @@ public class MX implements Data {
 
     @Override
     public String toString() {
-        return "MX " + name + " p:" + priority;
+        return priority + " " + name + '.';
     }
 
     @Override

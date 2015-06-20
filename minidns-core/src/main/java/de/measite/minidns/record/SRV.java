@@ -58,7 +58,7 @@ public class SRV implements Data {
 
     @Override
     public String toString() {
-        return "SRV " + name + ":" + port + " p:" + priority + " w:" + weight;
+        return priority + " " + weight + " " + port + " " + name + ".";
     }
 
     @Override

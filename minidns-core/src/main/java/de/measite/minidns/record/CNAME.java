@@ -43,7 +43,7 @@ public class CNAME implements Data {
 
     @Override
     public String toString() {
-        return "to \"" + name + "\"";
+        return name + ".";
     }
 
 }
