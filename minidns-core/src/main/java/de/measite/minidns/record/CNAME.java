@@ -25,7 +25,7 @@ public class CNAME implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return NameUtil.toByteArray(name);
     }
 
     public CNAME(DataInputStream dis, byte[] data, int length) throws IOException {

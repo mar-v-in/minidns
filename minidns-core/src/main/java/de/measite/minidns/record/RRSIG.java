@@ -14,7 +14,9 @@ import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.util.Base64;
 import de.measite.minidns.util.NameUtil;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -91,7 +93,28 @@ public class RRSIG implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            writePartialSignature(dos);
+            dos.write(signature);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
+    }
+
+    public void writePartialSignature(DataOutputStream dos) throws IOException {
+        dos.writeShort(typeCovered.getValue());
+        dos.writeByte(algorithm);
+        dos.writeByte(labels);
+        dos.writeInt((int) originalTtl);
+        dos.writeInt((int) (signatureExpiration.getTime()/1000));
+        dos.writeInt((int) (signatureInception.getTime()/1000));
+        dos.writeShort(keyTag);
+        dos.write(NameUtil.toByteArray(signerName));
     }
 
     @Override

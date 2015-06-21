@@ -13,7 +13,9 @@ package de.measite.minidns.record;
 import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.util.NameUtil;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
@@ -76,7 +78,23 @@ public class SOA implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            dos.write(NameUtil.toByteArray(mname));
+            dos.write(NameUtil.toByteArray(rname));
+            dos.writeInt((int) serial);
+            dos.writeInt(refresh);
+            dos.writeInt(retry);
+            dos.writeInt(expire);
+            dos.writeInt((int) minimum);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
     }
 
     @Override

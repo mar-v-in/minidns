@@ -12,7 +12,9 @@ package de.measite.minidns.record;
 
 import de.measite.minidns.Record.TYPE;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 
@@ -56,7 +58,19 @@ public class DS implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            dos.writeShort(keyTag);
+            dos.writeByte(algorithm);
+            dos.writeByte(digestType);
+            dos.write(digest);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
     }
 
     @Override
