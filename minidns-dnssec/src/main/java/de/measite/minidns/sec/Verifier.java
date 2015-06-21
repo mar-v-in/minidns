@@ -13,11 +13,19 @@ package de.measite.minidns.sec;
 import de.measite.minidns.Record;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
+import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.util.NameUtil;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Verifier {
@@ -26,6 +34,7 @@ public class Verifier {
     }
 
     private Map<Byte, DigestCalculator> digestMap;
+    private Map<Byte, SignatureVerifier> signatureMap;
 
     public Verifier() {
         digestMap = new HashMap<Byte, DigestCalculator>();
@@ -40,6 +49,29 @@ public class Verifier {
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is MANDATORY
             throw new RuntimeException(e);
+        }
+
+        signatureMap = new HashMap<>();
+        try {
+            signatureMap.put((byte) 1, new RSASignatureVerifier("MD5withRSA"));
+        } catch (NoSuchAlgorithmException e) {
+            // RSA/MD5 is DEPRECATED
+        }
+        try {
+            signatureMap.put((byte) 5, new RSASignatureVerifier("SHA1withRSA"));
+        } catch (NoSuchAlgorithmException e) {
+            // RSA/SHA-1 is MANDATORY
+            throw new RuntimeException(e);
+        }
+        try {
+            signatureMap.put((byte) 8, new RSASignatureVerifier("SHA256withRSA"));
+        } catch (NoSuchAlgorithmException e) {
+            // RSA/SHA-256 is RECOMMENDED
+        }
+        try {
+            signatureMap.put((byte) 10, new RSASignatureVerifier("SHA512withRSA"));
+        } catch (NoSuchAlgorithmException e) {
+            // RSA/SHA-256 is RECOMMENDED
         }
     }
 
@@ -59,5 +91,81 @@ public class Verifier {
 
         if (!Arrays.equals(digest, ds.digest)) return VerificationState.FAILED;
         return VerificationState.VERIFIED;
+    }
+
+    public VerificationState verify(List<Record> records, RRSIG rrsig, DNSKEY key) {
+        if (!signatureMap.containsKey(rrsig.algorithm)) {
+            return VerificationState.UNVERIFIED;
+        }
+
+        SignatureVerifier signatureVerifier = signatureMap.get(rrsig.algorithm);
+        byte[] combine = combine(rrsig, records);
+        if (signatureVerifier.verify(combine, rrsig.signature, key.key)) {
+            return VerificationState.VERIFIED;
+        } else {
+            return VerificationState.FAILED;
+        }
+    }
+
+    private byte[] combine(RRSIG rrsig, List<Record> records) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(bos);
+
+        // Write RRSIG without signature
+        try {
+            rrsig.writePartialSignature(dos);
+        } catch (IOException ignored) {
+            // Never happens
+        }
+
+        String sigName = records.get(0).name;
+        if (!sigName.isEmpty()) {
+            String[] name = sigName.split("\\.");
+            if (name.length != rrsig.labels) {
+                // Expand wildcards
+                for (int i = 0; i < name.length - rrsig.labels; i++) {
+                    name[name.length - i - 1] = "*";
+                }
+                StringBuilder sb = new StringBuilder();
+                for (String s : name) {
+                    sb.append(s).append('.');
+                }
+                sigName = sb.delete(sb.length() - 1, sb.length()).toString();
+            }
+        }
+
+        List<byte[]> recordBytes = new ArrayList<>();
+        for (Record record : records) {
+            Record ref = new Record(sigName, record.type, record.clazzValue, rrsig.originalTtl, record.payloadData);
+            recordBytes.add(ref.toByteArray());
+        }
+
+        // Sort correctly (cause they might be ordered randomly)
+        final int offset = NameUtil.size(sigName) + 10; // Where the RDATA begins
+        Collections.sort(recordBytes, new Comparator<byte[]>() {
+            @Override
+            public int compare(byte[] b1, byte[] b2) {
+                {
+                    for (int i = offset; i < b1.length && i < b2.length; i++) {
+                        if (b1[i] != b2[i]) {
+                            return (b1[i] & 0xFF) - (b2[i] & 0xFF);
+                        }
+                    }
+
+                    return b1.length - b2.length;
+                }
+            }
+        });
+
+
+        try {
+            for (byte[] recordByte : recordBytes) {
+                dos.write(recordByte);
+            }
+            dos.flush();
+        } catch (IOException ignored) {
+            // Never happens
+        }
+        return bos.toByteArray();
     }
 }
