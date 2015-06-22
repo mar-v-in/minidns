@@ -51,6 +51,13 @@ public class DS implements Data {
         dis.read(digest);
     }
 
+    DS(int keyTag, byte algorithm, byte digestType, byte[] digest) {
+        this.keyTag = keyTag;
+        this.algorithm = algorithm;
+        this.digestType = digestType;
+        this.digest = digest;
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.DS;

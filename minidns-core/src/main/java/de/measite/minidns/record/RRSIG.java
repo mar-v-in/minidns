@@ -86,6 +86,19 @@ public class RRSIG implements Data {
         dis.read(signature);
     }
 
+    RRSIG(TYPE typeCovered, byte algorithm, byte labels, long originalTtl, Date signatureExpiration, 
+                 Date signatureInception, int keyTag, String signerName, byte[] signature) {
+        this.typeCovered = typeCovered;
+        this.algorithm = algorithm;
+        this.labels = labels;
+        this.originalTtl = originalTtl;
+        this.signatureExpiration = signatureExpiration;
+        this.signatureInception = signatureInception;
+        this.keyTag = keyTag;
+        this.signerName = signerName;
+        this.signature = signature;
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.RRSIG;

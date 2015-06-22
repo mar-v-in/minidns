@@ -42,7 +42,7 @@ public class SRV implements Data {
     /**
      * The target server.
      */
-    public String name;
+    public final String name;
 
     public SRV(DataInputStream dis, byte[] data, int length)
         throws IOException
@@ -51,6 +51,13 @@ public class SRV implements Data {
         this.weight = dis.readUnsignedShort();
         this.port = dis.readUnsignedShort();
         this.name = NameUtil.parse(dis, data);
+    }
+
+    public SRV(int priority, int weight, int port, String name) {
+        this.priority = priority;
+        this.weight = weight;
+        this.port = port;
+        this.name = name;
     }
 
     @Override

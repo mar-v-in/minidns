@@ -71,6 +71,16 @@ public class SOA implements Data {
         minimum = dis.readInt() & 0xFFFFFFFFL;
     }
 
+    SOA(String mname, String rname, long serial, int refresh, int retry, int expire, long minimum) {
+        this.mname = mname;
+        this.rname = rname;
+        this.serial = serial;
+        this.refresh = refresh;
+        this.retry = retry;
+        this.expire = expire;
+        this.minimum = minimum;
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.SOA;
@@ -106,7 +116,7 @@ public class SOA implements Data {
                 .append(refresh).append(' ')
                 .append(retry).append(' ')
                 .append(expire).append(' ')
-                .append(minimum).append(' ');
+                .append(minimum);
         return sb.toString();
     }
 }

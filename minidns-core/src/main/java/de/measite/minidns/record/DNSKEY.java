@@ -72,6 +72,13 @@ public class DNSKEY implements Data {
         dis.readFully(key);
     }
 
+    DNSKEY(short flags, byte protocol, byte algorithm, byte[] key) {
+        this.flags = flags;
+        this.protocol = protocol;
+        this.algorithm = algorithm;
+        this.key = key;
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.DNSKEY;

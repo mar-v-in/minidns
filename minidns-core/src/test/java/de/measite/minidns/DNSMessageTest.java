@@ -37,6 +37,9 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
 
+import static de.measite.minidns.DNSWorld.a;
+import static de.measite.minidns.DNSWorld.ns;
+import static de.measite.minidns.DNSWorld.record;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -306,5 +309,47 @@ public class DNSMessageTest {
         }
 
         assertTrue(types.isEmpty());
+    }
+
+    @Test
+    public void testMessageSelfQuestionReconstruction() throws Exception {
+        DNSMessage message = new DNSMessage();
+        message.setQuestions(new Question("www.example.com", Record.TYPE.A));
+        message.setRecursionDesired(true);
+        message.setId(42);
+        message = new DNSMessage(message.toArray());
+
+        assertEquals(1, message.getQuestions().length);
+        assertEquals(0, message.getAnswers().length);
+        assertEquals(0, message.getAdditionalResourceRecords().length);
+        assertEquals(0, message.getNameserverRecords().length);
+        assertTrue(message.isRecursionDesired());
+        assertEquals(42, message.getId());
+        assertEquals("www.example.com", message.questions[0].name);
+        assertEquals(Record.TYPE.A, message.questions[0].type);
+    }
+
+    @Test
+    public void testMessageSelfEasyAnswersReconstruction() throws Exception {
+        DNSMessage message = new DNSMessage();
+        message.answers = new Record[]{
+                record("www.example.com", a("127.0.0.1")), 
+                record("www.example.com", ns("example.com"))};
+        message.setRecursionAvailable(false);
+        message.setId(43);
+        message = new DNSMessage(message.toArray());
+
+        assertEquals(0, message.getQuestions().length);
+        assertEquals(2, message.getAnswers().length);
+        assertEquals(0, message.getAdditionalResourceRecords().length);
+        assertEquals(0, message.getNameserverRecords().length);
+        assertFalse(message.isRecursionAvailable());
+        assertEquals(43, message.getId());
+        assertEquals("www.example.com", message.answers[0].name);
+        assertEquals(Record.TYPE.A, message.answers[0].type);
+        assertEquals("127.0.0.1", message.answers[0].payloadData.toString());
+        assertEquals("www.example.com", message.answers[1].name);
+        assertEquals(Record.TYPE.NS, message.answers[1].type);
+        assertEquals("example.com.", message.answers[1].payloadData.toString());
     }
 }

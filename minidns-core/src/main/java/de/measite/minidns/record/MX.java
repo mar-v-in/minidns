@@ -40,6 +40,11 @@ public class MX implements Data {
         this.name = NameUtil.parse(dis, data);
     }
 
+    MX(int priority, String name) {
+        this.priority = priority;
+        this.name = name;
+    }
+
     @Override
     public byte[] toByteArray() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
