@@ -14,7 +14,9 @@ import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.util.NameUtil;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -50,7 +52,17 @@ public class NSEC implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            dos.write(NameUtil.toByteArray(next));
+            dos.write(typeBitmap);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
     }
 
     @Override

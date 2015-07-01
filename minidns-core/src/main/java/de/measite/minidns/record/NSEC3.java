@@ -13,7 +13,9 @@ package de.measite.minidns.record;
 import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.util.Base32;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 
@@ -82,7 +84,23 @@ public class NSEC3 implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            dos.writeByte(hashAlgorithm);
+            dos.writeByte(flags);
+            dos.writeShort(iterations);
+            dos.writeByte(salt.length);
+            dos.write(salt);
+            dos.writeByte(nextHashed.length);
+            dos.write(nextHashed);
+            dos.write(typeBitmap);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
     }
 
     @Override

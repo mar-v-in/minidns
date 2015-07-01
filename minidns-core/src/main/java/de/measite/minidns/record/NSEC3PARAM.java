@@ -13,7 +13,9 @@ package de.measite.minidns.record;
 import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.util.Base32;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
@@ -54,7 +56,20 @@ public class NSEC3PARAM implements Data {
 
     @Override
     public byte[] toByteArray() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        try {
+            dos.writeByte(hashAlgorithm);
+            dos.writeByte(flags);
+            dos.writeShort(iterations);
+            dos.writeByte(salt.length);
+            dos.write(salt);
+        } catch (IOException e) {
+            // Should never happen
+            throw new IllegalStateException(e);
+        }
+
+        return baos.toByteArray();
     }
 
     @Override
