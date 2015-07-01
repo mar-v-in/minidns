@@ -24,9 +24,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Verifier {
     public enum VerificationState {
@@ -37,7 +37,7 @@ public class Verifier {
     private Map<Byte, SignatureVerifier> signatureMap;
 
     public Verifier() {
-        digestMap = new HashMap<Byte, DigestCalculator>();
+        digestMap = new ConcurrentHashMap<>();
         try {
             digestMap.put((byte) 1, new JavaSecDigestCalculator("SHA-1"));
         } catch (NoSuchAlgorithmException e) {
@@ -51,7 +51,7 @@ public class Verifier {
             throw new RuntimeException(e);
         }
 
-        signatureMap = new HashMap<>();
+        signatureMap = new ConcurrentHashMap<>();
         try {
             signatureMap.put((byte) 1, new RSASignatureVerifier("MD5withRSA"));
         } catch (NoSuchAlgorithmException e) {
@@ -121,16 +121,15 @@ public class Verifier {
         String sigName = records.get(0).name;
         if (!sigName.isEmpty()) {
             String[] name = sigName.split("\\.");
-            if (name.length != rrsig.labels) {
+            if (name.length > rrsig.labels) {
                 // Expand wildcards
-                for (int i = 0; i < name.length - rrsig.labels; i++) {
-                    name[name.length - i - 1] = "*";
+                sigName = name[name.length - 1];
+                for (int i = 1; i < rrsig.labels; i++) {
+                    sigName = name[name.length - i - 1] + "." + sigName;
                 }
-                StringBuilder sb = new StringBuilder();
-                for (String s : name) {
-                    sb.append(s).append('.');
-                }
-                sigName = sb.delete(sb.length() - 1, sb.length()).toString();
+                sigName = "*." + sigName;
+            } else if (name.length < rrsig.labels) {
+                throw new SecurityException("Invalid RRsig record");
             }
         }
 
@@ -145,15 +144,12 @@ public class Verifier {
         Collections.sort(recordBytes, new Comparator<byte[]>() {
             @Override
             public int compare(byte[] b1, byte[] b2) {
-                {
-                    for (int i = offset; i < b1.length && i < b2.length; i++) {
-                        if (b1[i] != b2[i]) {
-                            return (b1[i] & 0xFF) - (b2[i] & 0xFF);
-                        }
+                for (int i = offset; i < b1.length && i < b2.length; i++) {
+                    if (b1[i] != b2[i]) {
+                        return (b1[i] & 0xFF) - (b2[i] & 0xFF);
                     }
-
-                    return b1.length - b2.length;
                 }
+                return b1.length - b2.length;
             }
         });
 

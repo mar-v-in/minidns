@@ -44,7 +44,7 @@ public class RSASignatureVerifier extends JavaSecSignatureVerifier {
 
             return getKeyFactory().generatePublic(new RSAPublicKeySpec(modulus, exponent));
         } catch (Exception e) {
-            throw new SecurityException("Invalid public key!");
+            throw new SecurityException("Invalid public key!", e);
         }
     }
 }

@@ -12,27 +12,35 @@ package de.measite.minidns;
 
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
+import de.measite.minidns.record.NSEC;
 import de.measite.minidns.record.OPT;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.sec.Verifier;
 
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DNSSECClient extends RecursiveDNSClient {
+    private static final BigInteger rootEntryKey = new BigInteger("03010001a80020a95566ba42e886bb804cda84e47ef56dbd7aec612615552cec906d2116d0ef207028c51554144dfeafe7c7cb8f005dd18234133ac0710a81182ce1fd14ad2283bc83435f9df2f6313251931a176df0da51e54f42e604860dfb359580250f559cc543c4ffd51cbe3de8cfd06719237f9fc47ee729da06835fa452e825e9a18ebc2ecbcf563474652c33cf56a9033bcdf5d973121797ec8089041b6e03a1b72d0a735b984e03687309332324f27c2dba85e9db15e83a0143382e974b0621c18e625ecec907577d9e7bade95241a81ebbe8a901d4d3276e40b114c0a2e6fc38d19c2e6aab02644b2813f575fc21601e0dee49cd9ee96a43103e524d62873d", 16);
+
     public DNSSECClient(DNSCache dnsCache) {
         super(dnsCache);
+        addSecureEntryPoint("", rootEntryKey.toByteArray());
     }
 
     public DNSSECClient(Map<Question, DNSMessage> cache) {
         super(cache);
+        addSecureEntryPoint("", rootEntryKey.toByteArray());
     }
 
     private Verifier verifier = new Verifier();
+    private Map<String, byte[]> knownSeps = new ConcurrentHashMap<>();
 
     @Override
     public DNSMessage query(Question q, InetAddress address, int port) {
@@ -50,23 +58,105 @@ public class DNSSECClient extends RecursiveDNSClient {
     }
 
     private void verify(DNSMessage dnsMessage) {
-        dnsMessage.authenticData = true; // assume to be authentic until we know it's not
+        if (dnsMessage.answers.length > 0) {
+            verifyAnswer(dnsMessage);
+        } else {
+            verifyNsec(dnsMessage);
+        }
+    }
+
+    private void verifyAnswer(DNSMessage dnsMessage) {
         Question q = dnsMessage.questions[0];
         List<Record> toBeVerified = new ArrayList<Record>(Arrays.asList(dnsMessage.answers));
-        Record sigRecord;
+        VerifySignaturesResult verifiedSignatures = verifySignatures(q, dnsMessage.answers, toBeVerified);
+        dnsMessage.authenticData = verifiedSignatures.authenticData;
+        if (!verifiedSignatures.signaturesPresent) return;
+        for (Iterator<Record> iterator = toBeVerified.iterator(); iterator.hasNext(); ) {
+            Record record = iterator.next();
+            if (record.type == Record.TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
+                if (!verifySecureEntryPoint(q, record)) {
+                    dnsMessage.authenticData = false;
+                    LOGGER.info("Verification of answer to " + q + " failed: SEP key is not properly verified.");
+                }
+                if (!verifiedSignatures.sepSignaturePresent) {
+                    // TODO: Not sure if this is a problem or should be noted at all? It's at least abnormal...
+                    LOGGER.info("SEP key is not self-signed.");
+                }
+                iterator.remove();
+            }
+        }
+        if (verifiedSignatures.sepSignatureRequired && !verifiedSignatures.sepSignaturePresent) {
+            dnsMessage.authenticData = false;
+            LOGGER.info("Verification of answer to " + q + " failed: DNSKEY records need to be signed using a SEP key.");
+        }
+        if (!toBeVerified.isEmpty()) {
+            if (toBeVerified.size() != dnsMessage.answers.length) {
+                throw new SecurityException("Verification of answer to " + q + " failed: Only some records are signed!");
+            } else {
+                LOGGER.info("Answer to " + q + " is unsigned!");
+                dnsMessage.authenticData = false;
+            }
+        }
+    }
+
+    private void verifyNsec(DNSMessage dnsMessage) {
+        Question q = dnsMessage.questions[0];
+        boolean validNsec = false;
+        boolean nsecPresent = false;
+        for (Record record : dnsMessage.nameserverRecords) {
+            if (record.type == Record.TYPE.NSEC) {
+                NSEC nsec = (NSEC) record.payloadData;
+                if (record.name.equals(q.name) && !Arrays.asList(nsec.types).contains(q.type) || // records with same name but different types exist
+                        q.name.compareTo(record.name) > 0 && q.name.compareTo(nsec.next) < 0 ||
+                        q.name.compareTo(record.name) < 0 && q.name.compareTo(nsec.next) > 0) { // no record with that name exists.
+                    validNsec = true;
+                } else {
+                    LOGGER.info(record.toString());
+                }
+                nsecPresent = true;
+            } else if (record.type == Record.TYPE.NSEC3) {
+                LOGGER.info("Verification of answer to " + q + " failed: NSEC3 not yet supported!"); // TODO NSEC3
+                return;
+            }
+        }
+        if (nsecPresent && !validNsec) {
+            throw new SecurityException("Verification of answer to " + q + " failed: Invalid NSEC!");
+        }
+        List<Record> toBeVerified = new ArrayList<Record>(Arrays.asList(dnsMessage.nameserverRecords));
+        VerifySignaturesResult verifiedSignatures = verifySignatures(q, dnsMessage.nameserverRecords, toBeVerified);
+        dnsMessage.authenticData = validNsec && verifiedSignatures.authenticData;
+        if (!toBeVerified.isEmpty()) {
+            if (toBeVerified.size() != dnsMessage.answers.length) {
+                throw new SecurityException("Verification of answer to " + q + " failed: Only some nameserver records are signed!");
+            } else {
+                LOGGER.info("Answer to " + q + " is unsigned!");
+                dnsMessage.authenticData = false;
+            }
+        }
+    }
+
+    private class VerifySignaturesResult {
         boolean sepSignatureRequired = false;
         boolean sepSignaturePresent = false;
+        boolean authenticData = true; // assume to be authentic until we know it's not
+        boolean signaturesPresent = false;
+    }
+
+    private VerifySignaturesResult verifySignatures(Question q, Record[] reference, List<Record> toBeVerified) {
+        Record sigRecord;
+        VerifySignaturesResult result = new VerifySignaturesResult();
         while ((sigRecord = nextSignature(toBeVerified)) != null) {
+            result.signaturesPresent = true;
             RRSIG rrsig = (RRSIG) sigRecord.payloadData;
-            List<Record> records = new ArrayList<Record>();
-            for (Record record : dnsMessage.answers) {
+            List<Record> records = new ArrayList<>();
+            for (Record record : reference) {
                 if (record.type == rrsig.typeCovered && record.name.equals(sigRecord.name)) {
                     records.add(record);
                 }
             }
 
             if (!verifySignedRecords(q, rrsig, records)) {
-                dnsMessage.authenticData = false;
+                result.authenticData = false;
                 LOGGER.info("Verification of answer to " + q + " failed: " + records.size() + " " + rrsig.typeCovered + " records failed!");
             }
 
@@ -77,42 +167,36 @@ public class DNSSECClient extends RecursiveDNSClient {
                         // SEPs are verified separately, so don't mark them verified now.
                         iterator.remove();
                         if (dnskey.getKeyTag() == rrsig.keyTag) {
-                            sepSignaturePresent = true;
+                            result.sepSignaturePresent = true;
                         }
                     }
                 }
                 // DNSKEY's should be signed by a SEP
-                sepSignatureRequired = true;
+                result.sepSignatureRequired = true;
             }
 
-            toBeVerified.removeAll(records);
+            if (!isParentOrSelf(sigRecord.name, rrsig.signerName)) {
+                LOGGER.info("You cross-signed your records at " + sigRecord.name + " with a key from " + rrsig.signerName + ". That's nice, but we don't care.");
+            } else {
+                toBeVerified.removeAll(records);
+            }
             toBeVerified.remove(sigRecord);
         }
-        for (Iterator<Record> iterator = toBeVerified.iterator(); iterator.hasNext(); ) {
-            Record record = iterator.next();
-            if (record.type == Record.TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
-                if (!verifySecureEntryPoint(q, record)) {
-                    dnsMessage.authenticData = false;
-                    LOGGER.info("Verification of answer to " + q + " failed: SEP key is not properly verified.");
-                }
-                if (!sepSignaturePresent) {
-                    // TODO: Not sure if this is a problem or should be noted at all? It's at least abnormal...
-                    LOGGER.info("SEP key is not self-signed.");
-                }
-                iterator.remove();
+        return result;
+    }
+
+    private boolean isParentOrSelf(String child, String parent) {
+        if (child.equals(parent)) return true;
+        if (parent.isEmpty()) return true;
+        String[] childSplit = child.split("\\.");
+        String[] parentSplit = parent.split("\\.");
+        if (parentSplit.length > childSplit.length) return false;
+        for (int i = 1; i <= parentSplit.length; i++) {
+            if (!parentSplit[parentSplit.length - i].equals(childSplit[childSplit.length - i])) {
+                return false;
             }
         }
-        if (sepSignatureRequired && !sepSignaturePresent) {
-            dnsMessage.authenticData = false;
-            LOGGER.info("Verification of answer to " + q + " failed: DNSKEY records need to be signed using a SEP key.");
-        }
-        if (!toBeVerified.isEmpty()) {
-            if (toBeVerified.size() != dnsMessage.answers.length) {
-                throw new SecurityException("Verification of answer to " + q + " failed: Only some records are signed!");
-            } else {
-                LOGGER.info("Answer to " + q + " is unsigned!");
-            }
-        }
+        return true;
     }
 
     private boolean verifySignedRecords(Question q, RRSIG rrsig, List<Record> records) {
@@ -148,9 +232,12 @@ public class DNSSECClient extends RecursiveDNSClient {
     }
 
     private boolean verifySecureEntryPoint(Question q, Record sepRecord) {
-        // TODO: Known SEPs
-        if (sepRecord.name.isEmpty()) { // root dnskey, this should be done using a known SEP list
-            return true;
+        if (knownSeps.containsKey(sepRecord.name)) {
+            if (Arrays.equals(((DNSKEY) sepRecord.payloadData).key, knownSeps.get(sepRecord.name))) {
+                return true;
+            } else {
+                throw new SecurityException("Verification of answer to " + q + " failed: Secure entry point " + sepRecord.name + " is in list of known SEPs, but mismatches response!");
+            }
         }
         DNSMessage verify = query(sepRecord.name, Record.TYPE.DS);
         if (verify == null || !verify.authenticData) {
@@ -181,6 +268,10 @@ public class DNSSECClient extends RecursiveDNSClient {
                 return true;
         }
         return false;
+    }
+
+    private void addSecureEntryPoint(String name, byte[] key) {
+        knownSeps.put(name, key);
     }
 
     private static Record nextSignature(List<Record> records) {
