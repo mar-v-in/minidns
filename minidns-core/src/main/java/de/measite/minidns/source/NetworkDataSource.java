@@ -79,7 +79,10 @@ public class NetworkDataSource extends DNSDataSource {
             DataInputStream dis = new DataInputStream(socket.getInputStream());
             int length = dis.readUnsignedShort();
             byte[] data = new byte[length];
-            dis.read(data);
+            int read = 0;
+            while (read < length) {
+                read += dis.read(data, read, length-read);
+            }
             DNSMessage dnsMessage = new DNSMessage(data);
             if (dnsMessage.getId() != message.getId()) {
                 return null;
