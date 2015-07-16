@@ -10,74 +10,37 @@
  */
 package de.measite.minidns.sec;
 
+import de.measite.minidns.Question;
 import de.measite.minidns.Record;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
+import de.measite.minidns.record.NSEC;
+import de.measite.minidns.record.NSEC3;
 import de.measite.minidns.record.RRSIG;
+import de.measite.minidns.util.Base32;
 import de.measite.minidns.util.NameUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class Verifier {
+
     public enum VerificationState {
         UNVERIFIED, FAILED, VERIFIED
     }
 
-    private Map<Byte, DigestCalculator> digestMap;
-    private Map<Byte, SignatureVerifier> signatureMap;
-
-    public Verifier() {
-        digestMap = new ConcurrentHashMap<>();
-        try {
-            digestMap.put((byte) 1, new JavaSecDigestCalculator("SHA-1"));
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-1 is MANDATORY
-            throw new RuntimeException(e);
-        }
-        try {
-            digestMap.put((byte) 2, new JavaSecDigestCalculator("SHA-256"));
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is MANDATORY
-            throw new RuntimeException(e);
-        }
-
-        signatureMap = new ConcurrentHashMap<>();
-        try {
-            signatureMap.put((byte) 1, new RSASignatureVerifier("MD5withRSA"));
-        } catch (NoSuchAlgorithmException e) {
-            // RSA/MD5 is DEPRECATED
-        }
-        try {
-            signatureMap.put((byte) 5, new RSASignatureVerifier("SHA1withRSA"));
-        } catch (NoSuchAlgorithmException e) {
-            // RSA/SHA-1 is MANDATORY
-            throw new RuntimeException(e);
-        }
-        try {
-            signatureMap.put((byte) 8, new RSASignatureVerifier("SHA256withRSA"));
-        } catch (NoSuchAlgorithmException e) {
-            // RSA/SHA-256 is RECOMMENDED
-        }
-        try {
-            signatureMap.put((byte) 10, new RSASignatureVerifier("SHA512withRSA"));
-        } catch (NoSuchAlgorithmException e) {
-            // RSA/SHA-256 is RECOMMENDED
-        }
-    }
+    private AlgorithmMap algorithmMap = new AlgorithmMap();
 
     public VerificationState verify(Record dnskeyRecord, DS ds) {
         DNSKEY dnskey = (DNSKEY) dnskeyRecord.getPayload();
-        if (!digestMap.containsKey(ds.digestType)) {
+        DigestCalculator digestCalculator = algorithmMap.getDsDigestCalculator(ds.digestType);
+        if (digestCalculator == null) {
             return VerificationState.UNVERIFIED;
         }
 
@@ -86,7 +49,6 @@ public class Verifier {
         byte[] combined = new byte[dnskeyOwner.length + dnskeyData.length];
         System.arraycopy(dnskeyOwner, 0, combined, 0, dnskeyOwner.length);
         System.arraycopy(dnskeyData, 0, combined, dnskeyOwner.length, dnskeyData.length);
-        DigestCalculator digestCalculator = digestMap.get(ds.digestType);
         byte[] digest = digestCalculator.digest(combined);
 
         if (!Arrays.equals(digest, ds.digest)) return VerificationState.FAILED;
@@ -94,11 +56,11 @@ public class Verifier {
     }
 
     public VerificationState verify(List<Record> records, RRSIG rrsig, DNSKEY key) {
-        if (!signatureMap.containsKey(rrsig.algorithm)) {
+        SignatureVerifier signatureVerifier = algorithmMap.getSignatureVerifier(rrsig.algorithm);
+        if (signatureVerifier == null) {
             return VerificationState.UNVERIFIED;
         }
 
-        SignatureVerifier signatureVerifier = signatureMap.get(rrsig.algorithm);
         byte[] combine = combine(rrsig, records);
         if (signatureVerifier.verify(combine, rrsig.signature, key.key)) {
             return VerificationState.VERIFIED;
@@ -107,7 +69,37 @@ public class Verifier {
         }
     }
 
-    private byte[] combine(RRSIG rrsig, List<Record> records) {
+    public VerificationState verifyNsec(Record nsecRecord, Question q) {
+        NSEC nsec = (NSEC) nsecRecord.payloadData;
+        if (nsecRecord.name.equals(q.name) && !Arrays.asList(nsec.types).contains(q.type)) {
+            // records with same name but different types exist
+            return VerificationState.VERIFIED;
+        } else if (nsecMatches(q.name, nsecRecord.name, nsec.next)) {
+            return VerificationState.VERIFIED;
+        }
+        return VerificationState.FAILED;
+    }
+
+    public VerificationState verifyNsec3(String zone, Record nsec3record, Question q) {
+        NSEC3 nsec3 = (NSEC3) nsec3record.payloadData;
+        DigestCalculator digestCalculator = algorithmMap.getNsecDigestCalculator(nsec3.hashAlgorithm);
+
+        byte[] bytes = nsec3hash(digestCalculator, nsec3.salt, NameUtil.toByteArray(q.name.toLowerCase()), nsec3.iterations);
+        String s = Base32.encodeToString(bytes);
+        if (nsec3record.name.equals(s + "." + zone)) {
+            if (Arrays.asList(nsec3.types).contains(q.type)) {
+                return VerificationState.FAILED;
+            } else {
+                return VerificationState.VERIFIED;
+            }
+        }
+        if (nsecMatches(s, nsec3record.name.split("\\.")[0], Base32.encodeToString(nsec3.nextHashed))) {
+            return VerificationState.VERIFIED;
+        }
+        return VerificationState.FAILED;
+    }
+
+    static byte[] combine(RRSIG rrsig, List<Record> records) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(bos);
 
@@ -135,7 +127,7 @@ public class Verifier {
 
         List<byte[]> recordBytes = new ArrayList<>();
         for (Record record : records) {
-            Record ref = new Record(sigName, record.type, record.clazzValue, rrsig.originalTtl, record.payloadData);
+            Record ref = new Record(sigName.toLowerCase(), record.type, record.clazzValue, rrsig.originalTtl, record.payloadData);
             recordBytes.add(ref.toByteArray());
         }
 
@@ -163,5 +155,49 @@ public class Verifier {
             // Never happens
         }
         return bos.toByteArray();
+    }
+
+    static boolean nsecMatches(String test, String lowerBound, String upperBound) {
+        int lowerParts = 0, upperParts = 0, testParts = 0;
+        if (!lowerBound.isEmpty()) lowerParts = lowerBound.split("\\.").length;
+        if (!upperBound.isEmpty()) upperParts = upperBound.split("\\.").length;
+        if (!test.isEmpty()) testParts = test.split("\\.").length;
+
+        if (testParts > lowerParts && !test.endsWith(lowerBound) && stripToParts(test, lowerParts).compareTo(lowerBound) < 0)
+            return false;
+        if (testParts <= lowerParts && test.compareTo(stripToParts(lowerBound, testParts)) < 0) return false;
+
+        if (testParts > upperParts && !test.endsWith(upperBound) && stripToParts(test, upperParts).compareTo(upperBound) > 0)
+            return false;
+        if (testParts <= upperParts && test.compareTo(stripToParts(upperBound, testParts)) > 0) return false;
+
+        return true;
+    }
+
+    static String stripToParts(String s, int parts) {
+        if (s.isEmpty() && parts == 0) return s;
+        if (s.isEmpty()) throw new IllegalArgumentException();
+        String[] split = s.split("\\.");
+        if (split.length == parts) return s;
+        if (split.length < parts) throw new IllegalArgumentException();
+        StringBuilder sb = new StringBuilder();
+        for (int i = split.length - parts; i < split.length; i++) {
+            sb.append(split[i]);
+            if (i != split.length - 1) sb.append('.');
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Derived from RFC 5155 Section 5
+     */
+    static byte[] nsec3hash(DigestCalculator digestCalculator, byte[] salt, byte[] data, int iterations) {
+        if (iterations > 0) {
+            data = nsec3hash(digestCalculator, salt, data, iterations - 1);
+        }
+        byte[] combined = new byte[data.length + salt.length];
+        System.arraycopy(data, 0, combined, 0, data.length);
+        System.arraycopy(salt, 0, combined, data.length, salt.length);
+        return digestCalculator.digest(combined);
     }
 }

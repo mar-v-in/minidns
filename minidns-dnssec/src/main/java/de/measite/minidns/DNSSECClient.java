@@ -12,7 +12,6 @@ package de.measite.minidns;
 
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
-import de.measite.minidns.record.NSEC;
 import de.measite.minidns.record.OPT;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.sec.Verifier;
@@ -103,20 +102,31 @@ public class DNSSECClient extends RecursiveDNSClient {
         Question q = dnsMessage.questions[0];
         boolean validNsec = false;
         boolean nsecPresent = false;
+        String zone = null;
+        for (Record nameserverRecord : dnsMessage.nameserverRecords) {
+            if (nameserverRecord.type == Record.TYPE.SOA)
+                zone = nameserverRecord.name;
+        }
+        if (zone == null)
+            throw new IllegalStateException("NSECs must always match to a SOA");
         for (Record record : dnsMessage.nameserverRecords) {
+            Verifier.VerificationState result = null;
+
             if (record.type == Record.TYPE.NSEC) {
-                NSEC nsec = (NSEC) record.payloadData;
-                if (record.name.equals(q.name) && !Arrays.asList(nsec.types).contains(q.type) || // records with same name but different types exist
-                        q.name.compareTo(record.name) > 0 && q.name.compareTo(nsec.next) < 0 ||
-                        q.name.compareTo(record.name) < 0 && q.name.compareTo(nsec.next) > 0) { // no record with that name exists.
-                    validNsec = true;
-                } else {
-                    LOGGER.info(record.toString());
-                }
-                nsecPresent = true;
+                result = verifier.verifyNsec(record, q);
             } else if (record.type == Record.TYPE.NSEC3) {
-                LOGGER.info("Verification of answer to " + q + " failed: NSEC3 not yet supported!"); // TODO NSEC3
-                return;
+                result = verifier.verifyNsec3(zone, record, q);
+            }
+            if (result != null) {
+                switch (result) {
+                    case VERIFIED:
+                        nsecPresent = true;
+                        validNsec = true;
+                        break;
+                    case FAILED:
+                        nsecPresent = true;
+                        break;
+                }
             }
         }
         if (nsecPresent && !validNsec) {
