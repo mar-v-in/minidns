@@ -21,7 +21,6 @@ import java.util.Date;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * These are some tests for all records.
@@ -39,11 +38,27 @@ public class RecordsTest {
         byte[] ab = a.toByteArray();
         a = new A(new DataInputStream(new ByteArrayInputStream(ab)), ab, ab.length);
         assertArrayEquals(new byte[]{127, 0, 0, 1}, a.ip);
-        try {
-            new A(new byte[42]);
-            assertTrue("Exception thrown", false);
-        } catch (Exception ignored) {
-        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testARecordInvalidIp() throws Exception {
+        new A(new byte[42]);
+    }
+
+    @Test
+    public void testAAAARecord() throws Exception {
+        AAAA aaaa = new AAAA(new byte[]{0x20, 0x01, 0x0d, (byte) 0xb8, (byte) 0x85, (byte) 0xa3, 0x08, (byte) 0xd3, 0x13, 0x19, (byte) 0x8a, 0x2e, 0x03, 0x70, 0x73, 0x44});
+        // Note: there are multiple valid representations of the IPv6 address due to optional reductions.
+        assertEquals("2001:db8:85a3:8d3:1319:8a2e:370:7344", aaaa.toString());
+        Assert.assertEquals(Record.TYPE.AAAA, aaaa.getType());
+        byte[] aaaab  = aaaa.toByteArray();
+        aaaa = new AAAA(new DataInputStream(new ByteArrayInputStream(aaaab)), aaaab, aaaab.length);
+        assertArrayEquals(new byte[]{0x20, 0x01, 0x0d, (byte) 0xb8, (byte) 0x85, (byte) 0xa3, 0x08, (byte) 0xd3, 0x13, 0x19, (byte) 0x8a, 0x2e, 0x03, 0x70, 0x73, 0x44}, aaaa.ip);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testAAAARecordInvalidIp() throws Exception {
+        new AAAA(new byte[42]);
     }
 
     @Test
