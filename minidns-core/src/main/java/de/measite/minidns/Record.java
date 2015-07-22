@@ -34,6 +34,7 @@ import de.measite.minidns.record.PTR;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.record.SOA;
 import de.measite.minidns.record.SRV;
+import de.measite.minidns.record.TLSA;
 import de.measite.minidns.record.TXT;
 import de.measite.minidns.util.NameUtil;
 
@@ -344,6 +345,9 @@ public class Record {
                 break;
             case NSEC3PARAM:
                 this.payloadData = new NSEC3PARAM(dis, data, payloadLength);
+                break;
+            case TLSA:
+                this.payloadData = new TLSA(dis, data, payloadLength);
                 break;
             case UNKNOWN:
             default:
