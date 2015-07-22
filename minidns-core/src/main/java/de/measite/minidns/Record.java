@@ -29,6 +29,7 @@ import de.measite.minidns.record.NS;
 import de.measite.minidns.record.NSEC;
 import de.measite.minidns.record.NSEC3;
 import de.measite.minidns.record.NSEC3PARAM;
+import de.measite.minidns.record.OPENPGPKEY;
 import de.measite.minidns.record.OPT;
 import de.measite.minidns.record.PTR;
 import de.measite.minidns.record.RRSIG;
@@ -348,6 +349,9 @@ public class Record {
                 break;
             case TLSA:
                 this.payloadData = new TLSA(dis, data, payloadLength);
+                break;
+            case OPENPGPKEY:
+                this.payloadData = new OPENPGPKEY(dis, data, payloadLength);
                 break;
             case UNKNOWN:
             default:
