@@ -278,8 +278,9 @@ public class DNSWorld extends DNSDataSource {
 
     public static Zone zone(String zoneName, String nsName, String nsIp, Record... records) {
         try {
-            return zone(zoneName, InetAddress.getByAddress(nsName, parseIp(nsIp)), records);
+            return zone(zoneName, InetAddress.getByAddress(nsName, parseIpV4(nsIp)), records);
         } catch (UnknownHostException e) {
+            // This will never happen, as we already ensured the validity of the IP address by using parseIpV4()
             throw new RuntimeException(e);
         }
     }
@@ -301,12 +302,15 @@ public class DNSWorld extends DNSDataSource {
     }
 
     public static A a(String ipString) {
-        byte[] ip = parseIp(ipString);
+        byte[] ip = parseIpV4(ipString);
         return a(ip);
     }
 
-    static byte[] parseIp(String ipString) {
+    static byte[] parseIpV4(String ipString) {
         String[] split = ipString.split("\\.");
+        if (split.length != 4) {
+            throw new IllegalArgumentException(ipString + " is not an valid IPv4 address");
+        }
         byte[] ip = new byte[4];
         for (int i = 0; i < 4; i++) {
             ip[i] = (byte) Integer.parseInt(split[i]);
