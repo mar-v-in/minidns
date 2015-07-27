@@ -11,12 +11,12 @@
 package de.measite.minidns.record;
 
 import de.measite.minidns.Record.TYPE;
-import de.measite.minidns.util.Base32;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 
 /**
  * NSEC3PARAM record payload.
@@ -49,6 +49,13 @@ public class NSEC3PARAM implements Data {
         dis.read(salt);
     }
 
+    NSEC3PARAM(byte hashAlgorithm, byte flags, int iterations, byte[] salt) {
+        this.hashAlgorithm = hashAlgorithm;
+        this.flags = flags;
+        this.iterations = iterations;
+        this.salt = salt;
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.NSEC3PARAM;
@@ -66,7 +73,7 @@ public class NSEC3PARAM implements Data {
             dos.write(salt);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();
@@ -78,7 +85,7 @@ public class NSEC3PARAM implements Data {
                 .append(hashAlgorithm).append(' ')
                 .append(flags).append(' ')
                 .append(iterations).append(' ')
-                .append(Base32.encodeToString(salt));
+                .append(salt.length == 0 ? "-" : new BigInteger(1, salt).toString(16).toUpperCase());
         return sb.toString();
     }
 }

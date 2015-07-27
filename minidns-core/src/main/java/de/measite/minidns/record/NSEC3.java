@@ -77,6 +77,16 @@ public class NSEC3 implements Data {
         types = NSEC.readTypeBitMap(typeBitmap);
     }
 
+    NSEC3(byte hashAlgorithm, byte flags, int iterations, byte[] salt, byte[] nextHashed, TYPE[] types) {
+        this.hashAlgorithm = hashAlgorithm;
+        this.flags = flags;
+        this.iterations = iterations;
+        this.salt = salt;
+        this.nextHashed = nextHashed;
+        this.types = types;
+        this.typeBitmap = NSEC.createTypeBitMap(types);
+    }
+
     @Override
     public TYPE getType() {
         return TYPE.NSEC3;
@@ -97,7 +107,7 @@ public class NSEC3 implements Data {
             dos.write(typeBitmap);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

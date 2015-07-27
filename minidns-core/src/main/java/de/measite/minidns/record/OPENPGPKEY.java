@@ -25,6 +25,10 @@ public class OPENPGPKEY implements Data {
         dis.readFully(publicKeyPacket);
     }
 
+    OPENPGPKEY(byte[] publicKeyPacket) {
+        this.publicKeyPacket = publicKeyPacket;
+    }
+
     @Override
     public Record.TYPE getType() {
         return Record.TYPE.OPENPGPKEY;

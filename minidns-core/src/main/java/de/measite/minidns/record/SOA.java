@@ -101,7 +101,7 @@ public class SOA implements Data {
             dos.writeInt((int) minimum);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

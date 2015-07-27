@@ -113,7 +113,7 @@ public class RRSIG implements Data {
             dos.write(signature);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

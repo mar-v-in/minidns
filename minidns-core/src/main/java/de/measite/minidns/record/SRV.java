@@ -71,7 +71,7 @@ public class SRV implements Data {
             dos.write(NameUtil.toByteArray(name));
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

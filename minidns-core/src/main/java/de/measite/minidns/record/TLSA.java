@@ -62,6 +62,13 @@ public class TLSA implements Data {
         dis.read(certificateAssociation);
     }
 
+    TLSA(byte certUsage, byte selector, byte matchingType, byte[] certificateAssociation) {
+        this.certUsage = certUsage;
+        this.selector = selector;
+        this.matchingType = matchingType;
+        this.certificateAssociation = certificateAssociation;
+    }
+
     @Override
     public Record.TYPE getType() {
         return Record.TYPE.TLSA;
@@ -78,7 +85,7 @@ public class TLSA implements Data {
             dos.write(certificateAssociation);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
         return baos.toByteArray();
     }

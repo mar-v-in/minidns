@@ -74,7 +74,7 @@ public class DS implements Data {
             dos.write(digest);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

@@ -19,6 +19,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * NSEC record payload.
@@ -43,6 +45,12 @@ public class NSEC implements Data {
         typeBitmap = new byte[length - NameUtil.size(next)];
         dis.read(typeBitmap);
         types = readTypeBitMap(typeBitmap);
+    }
+
+    NSEC(String next, TYPE[] types) {
+        this.next = next;
+        this.types = types;
+        this.typeBitmap = createTypeBitMap(types);
     }
 
     @Override
@@ -75,7 +83,51 @@ public class NSEC implements Data {
         return sb.toString();
     }
 
-    public static TYPE[] readTypeBitMap(byte[] typeBitmap) throws IOException {
+    static byte[] createTypeBitMap(TYPE[] types) {
+        List<Integer> typeList = new ArrayList<Integer>();
+        for (TYPE type : types) {
+            typeList.add(type.getValue());
+        }
+        Collections.sort(typeList);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+
+        try {
+            int windowBlock = -1;
+            byte[] bitmap = null;
+            for (Integer type : typeList) {
+                if (windowBlock == -1 || (type >> 8) != windowBlock) {
+                    if (windowBlock != -1) writeOutBlock(bitmap, dos);
+                    windowBlock = (type >> 8);
+                    dos.writeByte(windowBlock);
+                    bitmap = new byte[32];
+                }
+                int a = (type >> 3) % 32;
+                int b = type % 8;
+                bitmap[a] |= (128 >> b);
+            }
+            if (windowBlock != -1) writeOutBlock(bitmap, dos);
+        } catch (IOException e) {
+            // Should never happen.
+            throw new RuntimeException(e);
+        }
+
+        return baos.toByteArray();
+    }
+
+    private static void writeOutBlock(byte[] values, DataOutputStream dos) throws IOException {
+        int n = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] != 0) n = i + 1;
+        }
+        dos.writeByte(n);
+        for (int i = 0; i < n; i++) {
+            dos.writeByte(values[i]);
+        }
+    }
+
+    static TYPE[] readTypeBitMap(byte[] typeBitmap) throws IOException {
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(typeBitmap));
         int read = 0;
         ArrayList<TYPE> typeList = new ArrayList<TYPE>();
