@@ -13,9 +13,15 @@ package de.measite.minidns.util;
 /**
  * Very minimal Base64 encoder.
  */
-public class Base64 {
+public final class Base64 {
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     private static final String PADDING = "==";
+
+    /**
+     * Do not allow to instantiate Base64
+     */
+    private Base64() {
+    }
 
     public static String encodeToString(byte[] bytes) {
         int paddingCount = (3 - (bytes.length % 3)) % 3;

@@ -13,9 +13,15 @@ package de.measite.minidns.util;
 /**
  * Very minimal Base32 encoder.
  */
-public class Base32 {
+public final class Base32 {
     private static final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
     private static final String PADDING = "======";
+
+    /**
+     * Do not allow to instantiate Base32
+     */
+    private Base32() {
+    }
 
     public static String encodeToString(byte[] bytes) {
         int paddingCount = (int) (8 - (bytes.length % 5) * 1.6) % 8;
