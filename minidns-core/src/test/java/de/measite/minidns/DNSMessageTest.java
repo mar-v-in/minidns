@@ -10,6 +10,7 @@
  */
 package de.measite.minidns;
 
+import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.AAAA;
 import de.measite.minidns.record.CNAME;
@@ -19,11 +20,13 @@ import de.measite.minidns.record.Data;
 import de.measite.minidns.record.MX;
 import de.measite.minidns.record.NS;
 import de.measite.minidns.record.NSEC;
+import de.measite.minidns.record.NSEC3;
 import de.measite.minidns.record.OPT;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.record.SOA;
 import de.measite.minidns.record.SRV;
 import de.measite.minidns.record.TXT;
+import de.measite.minidns.util.Base32;
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -33,6 +36,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
@@ -81,15 +85,15 @@ public class DNSMessageTest {
         if(answers[1].getName().equalsIgnoreCase("www.sun.com"))
             cname = 1;
         assertTrue(answers[cname].getPayload() instanceof CNAME);
-        assertEquals(Record.TYPE.CNAME, answers[cname].getPayload().getType());
+        assertEquals(TYPE.CNAME, answers[cname].getPayload().getType());
         assertEquals("legacy-sun.oraclegha.com",
                      ((CNAME)(answers[cname].getPayload())).name);
 
         assertEquals("legacy-sun.oraclegha.com", answers[1-cname].getName());
-        assertTrue(answers[1-cname].getPayload() instanceof A);
-        assertEquals(Record.TYPE.A, answers[1-cname].getPayload().getType());
+        assertTrue(answers[1 - cname].getPayload() instanceof A);
+        assertEquals(TYPE.A, answers[1 - cname].getPayload().getType());
         assertEquals("156.151.59.35",
-                     ((A)(answers[1-cname].getPayload())).toString());
+                ((A) (answers[1 - cname].getPayload())).toString());
     }
 
 
@@ -101,7 +105,7 @@ public class DNSMessageTest {
         assertEquals(1, answers.length);
         assertEquals("google.com", answers[0].getName());
         assertTrue(answers[0].getPayload() instanceof AAAA);
-        assertEquals(Record.TYPE.AAAA, answers[0].getPayload().getType());
+        assertEquals(TYPE.AAAA, answers[0].getPayload().getType());
         assertEquals("2a00:1450:400c:c02:0:0:0:8a",
                      ((AAAA)(answers[0].getPayload())).toString());
     }
@@ -118,7 +122,7 @@ public class DNSMessageTest {
             assertEquals("gmail.com", r.getName());
             Data d = r.getPayload();
             assertTrue(d instanceof MX);
-            assertEquals(Record.TYPE.MX, d.getType());
+            assertEquals(TYPE.MX, d.getType());
             mxes.put(((MX)d).priority, ((MX)d).name);
         }
         assertEquals("gmail-smtp-in.l.google.com", mxes.get(5));
@@ -136,7 +140,7 @@ public class DNSMessageTest {
         Record[] answers = m.getAnswers();
         assertEquals(1, answers.length);
         assertTrue(answers[0].getPayload() instanceof SRV);
-        assertEquals(Record.TYPE.SRV, answers[0].getPayload().getType());
+        assertEquals(TYPE.SRV, answers[0].getPayload().getType());
         SRV r = (SRV)(answers[0].getPayload());
         assertEquals("raven.toroid.org", r.name);
         assertEquals(5222, r.port);
@@ -155,7 +159,7 @@ public class DNSMessageTest {
             assertEquals("codinghorror.com", r.getName());
             Data d = r.getPayload();
             assertTrue(d instanceof TXT);
-            assertEquals(Record.TYPE.TXT, d.getType());
+            assertEquals(TYPE.TXT, d.getType());
             TXT txt = (TXT)d;
             assertTrue(txtToBeFound.contains(txt.getText()));
             txtToBeFound.remove(txt.getText());
@@ -171,7 +175,7 @@ public class DNSMessageTest {
         Record[] answers = m.getAnswers();
         assertEquals(1, answers.length);
         assertTrue(answers[0].getPayload() instanceof SOA);
-        assertEquals(Record.TYPE.SOA, answers[0].getPayload().getType());
+        assertEquals(TYPE.SOA, answers[0].getPayload().getType());
         SOA soa = (SOA) answers[0].getPayload();
         assertEquals("orcldns1.ultradns.com", soa.mname);
         assertEquals("hostmaster\\@oracle.com", soa.rname);
@@ -195,7 +199,7 @@ public class DNSMessageTest {
         for (Record answer : answers) {
             assertEquals("com", answer.name);
             assertEquals(Record.CLASS.IN, answer.clazz);
-            assertEquals(Record.TYPE.NS, answer.type);
+            assertEquals(TYPE.NS, answer.type);
             assertEquals(112028, answer.ttl);
             assertTrue(((NS) answer.payloadData).name.endsWith(".gtld-servers.net"));
         }
@@ -218,8 +222,8 @@ public class DNSMessageTest {
             Record answer = answers[i];
             assertEquals("", answer.getName());
             assertEquals(19593, answer.getTtl());
-            assertEquals(Record.TYPE.DNSKEY, answer.type);
-            assertEquals(Record.TYPE.DNSKEY, answer.getPayload().getType());
+            assertEquals(TYPE.DNSKEY, answer.type);
+            assertEquals(TYPE.DNSKEY, answer.getPayload().getType());
             DNSKEY dnskey = (DNSKEY) answer.getPayload();
             assertEquals(3, dnskey.protocol);
             assertEquals(8, dnskey.algorithm);
@@ -259,8 +263,8 @@ public class DNSMessageTest {
         Record[] answers = m.getAnswers();
         assertEquals(2, answers.length);
 
-        assertEquals(Record.TYPE.DS, answers[0].type);
-        assertEquals(Record.TYPE.DS, answers[0].payloadData.getType());
+        assertEquals(TYPE.DS, answers[0].type);
+        assertEquals(TYPE.DS, answers[0].payloadData.getType());
         DS ds = (DS) answers[0].payloadData;
         assertEquals(30909, ds.keyTag);
         assertEquals(8, ds.algorithm);
@@ -268,10 +272,10 @@ public class DNSMessageTest {
         assertEquals("E2D3C916F6DEEAC73294E8268FB5885044A833FC5459588F4A9184CFC41A5766",
                 new BigInteger(1, ds.digest).toString(16).toUpperCase());
 
-        assertEquals(Record.TYPE.RRSIG, answers[1].type);
-        assertEquals(Record.TYPE.RRSIG, answers[1].payloadData.getType());
+        assertEquals(TYPE.RRSIG, answers[1].type);
+        assertEquals(TYPE.RRSIG, answers[1].payloadData.getType());
         RRSIG rrsig = (RRSIG) answers[1].payloadData;
-        assertEquals(Record.TYPE.DS, rrsig.typeCovered);
+        assertEquals(TYPE.DS, rrsig.typeCovered);
         assertEquals(8, rrsig.algorithm);
         assertEquals(1, rrsig.labels);
         assertEquals(86400, rrsig.originalTtl);
@@ -296,15 +300,15 @@ public class DNSMessageTest {
         DNSMessage m = getMessageFromResource("example-nsec");
         Record[] answers = m.getAnswers();
         assertEquals(1, answers.length);
-        assertEquals(Record.TYPE.NSEC, answers[0].type);
-        assertEquals(Record.TYPE.NSEC, answers[0].payloadData.getType());
+        assertEquals(TYPE.NSEC, answers[0].type);
+        assertEquals(TYPE.NSEC, answers[0].payloadData.getType());
         NSEC nsec = (NSEC) answers[0].getPayload();
         assertEquals("www.example.com", nsec.next);
-        ArrayList<Record.TYPE> types = new ArrayList<>(Arrays.asList(
-                Record.TYPE.A, Record.TYPE.NS, Record.TYPE.SOA, Record.TYPE.TXT,
-                Record.TYPE.AAAA, Record.TYPE.RRSIG, Record.TYPE.NSEC, Record.TYPE.DNSKEY));
+        ArrayList<TYPE> types = new ArrayList<>(Arrays.asList(
+                TYPE.A, TYPE.NS, TYPE.SOA, TYPE.TXT,
+                TYPE.AAAA, TYPE.RRSIG, TYPE.NSEC, TYPE.DNSKEY));
 
-        for (Record.TYPE type : nsec.types) {
+        for (TYPE type : nsec.types) {
             assertTrue(types.remove(type));
         }
 
@@ -312,9 +316,50 @@ public class DNSMessageTest {
     }
 
     @Test
+    public void testComNsec3Lookup() throws Exception {
+        DNSMessage m = getMessageFromResource("com-nsec3");
+        assertEquals(0, m.getAnswers().length);
+        Record[] records = m.getNameserverRecords();
+        assertEquals(8, records.length);
+        for (Record record : records) {
+            if (record.type == TYPE.NSEC3) {
+                assertEquals(TYPE.NSEC3, record.getPayload().getType());
+                NSEC3 nsec3 = (NSEC3) record.payloadData;
+                assertEquals(1, nsec3.hashAlgorithm);
+                assertEquals(1, nsec3.flags);
+                assertEquals(0, nsec3.iterations);
+                assertEquals(0, nsec3.salt.length);
+                switch (record.name) {
+                    case "CK0POJMG874LJREF7EFN8430QVIT8BSM.com":
+                        assertEquals("CK0QFMDQRCSRU0651QLVA1JQB21IF7UR", Base32.encodeToString(nsec3.nextHashed));
+                        assertArrayContentEquals(new TYPE[]{TYPE.NS, TYPE.SOA, TYPE.RRSIG, TYPE.DNSKEY, TYPE.NSEC3PARAM}, nsec3.types);
+                        break;
+                    case "V2I33UBTHNVNSP9NS85CURCLSTFPTE24.com":
+                        assertEquals("V2I4KPUS7NGDML5EEJU3MVHO26GKB6PA", Base32.encodeToString(nsec3.nextHashed));
+                        assertArrayContentEquals(new TYPE[]{TYPE.NS, TYPE.DS, TYPE.RRSIG}, nsec3.types);
+                        break;
+                    case "3RL20VCNK6KV8OT9TDIJPI0JU1SS6ONS.com":
+                        assertEquals("3RL3UFVFRUE94PV5888AIC2TPS0JA9V2", Base32.encodeToString(nsec3.nextHashed));
+                        assertArrayContentEquals(new TYPE[]{TYPE.NS, TYPE.DS, TYPE.RRSIG}, nsec3.types);
+                        break;
+                }
+            }
+        }
+    }
+
+    private void assertArrayContentEquals(Object[] expect, Object[] value) {
+        assertEquals(expect.length, value.length);
+        List<Object> list = new ArrayList<Object>(Arrays.asList(expect));
+        for (Object type : value) {
+            assertTrue(list.remove(type));
+        }
+        assertTrue(list.isEmpty());
+    }
+
+    @Test
     public void testMessageSelfQuestionReconstruction() throws Exception {
         DNSMessage message = new DNSMessage();
-        message.setQuestions(new Question("www.example.com", Record.TYPE.A));
+        message.setQuestions(new Question("www.example.com", TYPE.A));
         message.setRecursionDesired(true);
         message.setId(42);
         message = new DNSMessage(message.toArray());
@@ -326,7 +371,7 @@ public class DNSMessageTest {
         assertTrue(message.isRecursionDesired());
         assertEquals(42, message.getId());
         assertEquals("www.example.com", message.questions[0].name);
-        assertEquals(Record.TYPE.A, message.questions[0].type);
+        assertEquals(TYPE.A, message.questions[0].type);
     }
 
     @Test
@@ -346,10 +391,10 @@ public class DNSMessageTest {
         assertFalse(message.isRecursionAvailable());
         assertEquals(43, message.getId());
         assertEquals("www.example.com", message.answers[0].name);
-        assertEquals(Record.TYPE.A, message.answers[0].type);
+        assertEquals(TYPE.A, message.answers[0].type);
         assertEquals("127.0.0.1", message.answers[0].payloadData.toString());
         assertEquals("www.example.com", message.answers[1].name);
-        assertEquals(Record.TYPE.NS, message.answers[1].type);
+        assertEquals(TYPE.NS, message.answers[1].type);
         assertEquals("example.com.", message.answers[1].payloadData.toString());
     }
 }
