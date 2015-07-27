@@ -8,8 +8,11 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns;
+package de.measite.minidns.recursive;
 
+import de.measite.minidns.DNSMessage;
+import de.measite.minidns.LRUCache;
+import de.measite.minidns.Record;
 import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.record.A;
 import org.junit.Test;
@@ -44,9 +47,10 @@ public class RecursiveDNSClientTest {
         );
         DNSMessage message = client.query("www.example.com", TYPE.A);
         assertNotNull(message);
-        assertEquals(1, message.answers.length);
-        assertEquals(TYPE.A, message.answers[0].type);
-        assertArrayEquals(new byte[]{1, 1, 1, 3}, ((A) message.answers[0].payloadData).ip);
+        Record[] answers = message.getAnswers();
+        assertEquals(1, answers.length);
+        assertEquals(TYPE.A, answers[0].type);
+        assertArrayEquals(new byte[]{1, 1, 1, 3}, ((A) answers[0].payloadData).ip);
     }
 
     @Test
@@ -78,7 +82,7 @@ public class RecursiveDNSClientTest {
                         record("ns.net", a("1.1.2.1"))
                 ), zone("com", "ns.com", "1.1.1.1",
                         record("example.com", ns("example.ns.net"))
-                ),  zone("net", "ns.net", "1.1.2.1",
+                ), zone("net", "ns.net", "1.1.2.1",
                         record("example.ns.net", a("1.1.2.2"))
                 ), zone("example.com", "example.ns.net", "1.1.2.2",
                         record("www.example.com", a("1.1.1.3"))
@@ -86,8 +90,9 @@ public class RecursiveDNSClientTest {
         );
         DNSMessage message = client.query("www.example.com", TYPE.A);
         assertNotNull(message);
-        assertEquals(1, message.answers.length);
-        assertEquals(TYPE.A, message.answers[0].type);
-        assertArrayEquals(new byte[]{1, 1, 1, 3}, ((A) message.answers[0].payloadData).ip);
+        Record[] answers = message.getAnswers();
+        assertEquals(1, answers.length);
+        assertEquals(TYPE.A, answers[0].type);
+        assertArrayEquals(new byte[]{1, 1, 1, 3}, ((A) answers[0].payloadData).ip);
     }
 }

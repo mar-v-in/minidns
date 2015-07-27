@@ -8,8 +8,13 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns;
+package de.measite.minidns.recursive;
 
+import de.measite.minidns.AbstractDNSClient;
+import de.measite.minidns.DNSCache;
+import de.measite.minidns.DNSMessage;
+import de.measite.minidns.Question;
+import de.measite.minidns.Record;
 import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.CNAME;
@@ -25,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 
 public class RecursiveDNSClient extends AbstractDNSClient {
-
     protected static final InetAddress[] ROOT_SERVERS;
     private int maxDepth = 128;
 
@@ -60,12 +64,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         DNSMessage message = queryRecursive(0, q);
         if (message == null) return null;
         // TODO: restrict to real answer or accept non-answers?
-        for (Record answer : message.answers) {
-            if (answer.isAnswer(q)) {
-                return message;
-            }
-        }
-        return null;
+        return message;
     }
 
     public DNSMessage queryRecursive(int depth, Question q) {
@@ -81,10 +80,10 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         } catch (IOException e) {
             return null;
         }
-        if (resMessage == null || resMessage.authoritativeAnswer) {
+        if (resMessage == null || resMessage.isAuthoritativeAnswer()) {
             return resMessage;
         }
-        List<Record> authorities = new ArrayList<Record>(Arrays.asList(resMessage.nameserverRecords));
+        List<Record> authorities = new ArrayList<Record>(Arrays.asList(resMessage.getNameserverRecords()));
 
         // Glued NS first
         for (Iterator<Record> iterator = authorities.iterator(); iterator.hasNext(); ) {
@@ -121,7 +120,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         Question question = new Question(name, TYPE.A);
         DNSMessage aMessage = queryRecursive(depth + 1, question);
         if (aMessage != null) {
-            for (Record answer : aMessage.answers) {
+            for (Record answer : aMessage.getAnswers()) {
                 if (answer.isAnswer(question)) {
                     return inetAddressFromRecord(name, (A) answer.payloadData);
                 } else if (answer.type == TYPE.CNAME && answer.name.equals(name)) {
@@ -133,7 +132,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
     }
 
     private InetAddress searchAdditional(DNSMessage message, String name) {
-        for (Record record : message.additionalResourceRecords) {
+        for (Record record : message.getAdditionalResourceRecords()) {
             // TODO: IPv6?
             if (record.type == TYPE.A && record.name.equals(name)) {
                 return inetAddressFromRecord(name, ((A) record.payloadData));
@@ -145,9 +144,9 @@ public class RecursiveDNSClient extends AbstractDNSClient {
     private static InetAddress inetAddressFromRecord(String name, A recordPayload) {
         try {
             return InetAddress.getByAddress(name, recordPayload.ip);
-        } catch (UnknownHostException ignored) {
+        } catch (UnknownHostException e) {
             // This will never happen
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
@@ -162,7 +161,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
 
     @Override
     protected boolean isResponseCacheable(Question q, DNSMessage dnsMessage) {
-        return dnsMessage.authoritativeAnswer;
+        return dnsMessage.isAuthoritativeAnswer();
     }
 
     @Override
