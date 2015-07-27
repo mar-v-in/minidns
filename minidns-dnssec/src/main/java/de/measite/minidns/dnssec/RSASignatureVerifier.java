@@ -8,7 +8,7 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -18,7 +18,6 @@ import java.security.PublicKey;
 import java.security.spec.RSAPublicKeySpec;
 
 public class RSASignatureVerifier extends JavaSecSignatureVerifier {
-
     public RSASignatureVerifier(String algorithm) throws NoSuchAlgorithmException {
         super("RSA", algorithm);
     }
@@ -44,7 +43,7 @@ public class RSASignatureVerifier extends JavaSecSignatureVerifier {
 
             return getKeyFactory().generatePublic(new RSAPublicKeySpec(modulus, exponent));
         } catch (Exception e) {
-            throw new SecurityException("Invalid public key!", e);
+            throw new DNSSECValidationFailedException("Invalid public key!", e);
         }
     }
 }

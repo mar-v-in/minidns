@@ -8,7 +8,7 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -40,7 +40,7 @@ public abstract class JavaSecSignatureVerifier implements SignatureVerifier{
             signature.update(content);
             return signature.verify(sig);
         } catch (Exception e) {
-            throw new SecurityException(e);
+            throw new DNSSECValidationFailedException("Validating signature failed", e);
         }
     }
 

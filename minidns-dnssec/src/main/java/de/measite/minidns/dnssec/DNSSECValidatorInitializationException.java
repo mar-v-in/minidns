@@ -8,8 +8,12 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
-public interface DigestCalculator {
-    byte[] digest(byte[] bytes);
+public class DNSSECValidatorInitializationException extends RuntimeException {
+    private static final long serialVersionUID = -1464257268053507791L;
+
+    public DNSSECValidatorInitializationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

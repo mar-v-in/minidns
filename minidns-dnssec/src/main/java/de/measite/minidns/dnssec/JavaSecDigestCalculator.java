@@ -8,13 +8,12 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class JavaSecDigestCalculator implements DigestCalculator {
-
     private MessageDigest md;
 
     public JavaSecDigestCalculator(String algorithm) throws NoSuchAlgorithmException {

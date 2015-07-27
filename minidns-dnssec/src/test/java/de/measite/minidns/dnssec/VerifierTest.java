@@ -8,7 +8,7 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import org.junit.Test;
 
@@ -17,7 +17,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class VerifierTest {
-
     @Test
     public void nsecMatchesTest() {
         assertTrue(Verifier.nsecMatches("example.com", "com", "com"));

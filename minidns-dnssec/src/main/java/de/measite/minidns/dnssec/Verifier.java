@@ -8,7 +8,7 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
@@ -30,7 +30,6 @@ import java.util.Comparator;
 import java.util.List;
 
 public class Verifier {
-
     public enum VerificationState {
         UNVERIFIED, FAILED, VERIFIED
     }
@@ -106,8 +105,9 @@ public class Verifier {
         // Write RRSIG without signature
         try {
             rrsig.writePartialSignature(dos);
-        } catch (IOException ignored) {
+        } catch (IOException e) {
             // Never happens
+            throw new RuntimeException(e);
         }
 
         String sigName = records.get(0).name;
@@ -121,7 +121,7 @@ public class Verifier {
                 }
                 sigName = "*." + sigName;
             } else if (name.length < rrsig.labels) {
-                throw new SecurityException("Invalid RRsig record");
+                throw new DNSSECValidationFailedException("Invalid RRsig record");
             }
         }
 
@@ -151,8 +151,9 @@ public class Verifier {
                 dos.write(recordByte);
             }
             dos.flush();
-        } catch (IOException ignored) {
+        } catch (IOException e) {
             // Never happens
+            throw new RuntimeException(e);
         }
         return bos.toByteArray();
     }

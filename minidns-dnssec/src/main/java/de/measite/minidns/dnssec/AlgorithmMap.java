@@ -8,14 +8,13 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.sec;
+package de.measite.minidns.dnssec;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 class AlgorithmMap {
-
     private Map<Byte, DigestCalculator> dsDigestMap;
     private Map<Byte, SignatureVerifier> signatureMap;
     private Map<Byte, DigestCalculator> nsecDigestMap;
@@ -28,13 +27,13 @@ class AlgorithmMap {
             nsecDigestMap.put((byte) 1, new JavaSecDigestCalculator("SHA-1"));
         } catch (NoSuchAlgorithmException e) {
             // SHA-1 is MANDATORY
-            throw new RuntimeException(e);
+            throw new DNSSECValidatorInitializationException("SHA-1 is mandatory", e);
         }
         try {
             dsDigestMap.put((byte) 2, new JavaSecDigestCalculator("SHA-256"));
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is MANDATORY
-            throw new RuntimeException(e);
+            throw new DNSSECValidatorInitializationException("SHA-256 is mandatory", e);
         }
 
         signatureMap = new ConcurrentHashMap<>();
@@ -46,8 +45,7 @@ class AlgorithmMap {
         try {
             signatureMap.put((byte) 5, new RSASignatureVerifier("SHA1withRSA"));
         } catch (NoSuchAlgorithmException e) {
-            // RSA/SHA-1 is MANDATORY
-            throw new RuntimeException(e);
+            throw new DNSSECValidatorInitializationException("RSA/SHA-1 is mandatory", e);
         }
         try {
             signatureMap.put((byte) 8, new RSASignatureVerifier("SHA256withRSA"));
