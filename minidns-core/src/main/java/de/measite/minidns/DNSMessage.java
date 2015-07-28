@@ -601,11 +601,64 @@ public class DNSMessage {
         }
     }
 
+    public DNSMessage withNewRecords(Record[] answers, Record[] nameserverRecords, Record[] additionalResourceRecords) {
+        DNSMessage copy = new DNSMessage();
+        copy.id = this.id;
+        copy.query = this.query;
+        copy.opcode = this.opcode;
+        copy.authoritativeAnswer = this.authoritativeAnswer;
+        copy.truncated = this.truncated;
+        copy.recursionDesired = this.recursionDesired;
+        copy.recursionAvailable = this.recursionAvailable;
+        copy.authenticData = this.authenticData;
+        copy.checkDisabled = this.checkDisabled;
+        copy.responseCode = this.responseCode;
+        copy.receiveTimestamp = this.receiveTimestamp;
+        copy.questions = this.questions;
+        copy.answers = answers;
+        copy.nameserverRecords = nameserverRecords;
+        copy.additionalResourceRecords = additionalResourceRecords;
+        return copy;
+    }
+
+    @Override
     public String toString() {
+        StringBuilder sb = new StringBuilder("DNSMessage@")
+                .append(id).append("(")
+                .append(opcode.name()).append(" ")
+                .append(responseCode.name());
+        if (!query) sb.append(" qr");
+        if (authoritativeAnswer) sb.append(" aa");
+        if (truncated) sb.append(" tr");
+        if (recursionDesired) sb.append(" rd");
+        if (recursionAvailable) sb.append(" ra");
+        if (authenticData) sb.append(" ad");
+        if (checkDisabled) sb.append(" cd");
+        sb.append("){");
+        for (Question question : questions) {
+            sb.append("[Q: ").append(question.toString()).append("]");
+        }
+        for (Record record : answers) {
+            sb.append(" [A: ").append(record.toString()).append("]");
+        }
+        for (Record record : nameserverRecords) {
+            sb.append(" [N: ").append(record.toString()).append("]");
+        }
+        for (Record record : additionalResourceRecords) {
+            if (record.type == Record.TYPE.OPT) {
+                sb.append(" [X: ").append(OPT.optRecordToString(record)).append("]");
+            } else {
+                sb.append(" [X: ").append(record.toString()).append("]");
+            }
+        }
+        return sb.append("}").toString();
+    }
+
+    public String toPrintableString() {
         StringBuilder sb = new StringBuilder(";; ->>HEADER<<-")
                 .append(" opcode: ").append(opcode.name())
                 .append(", status: ").append(responseCode.name())
-                .append(", id: ").append(id).append("\r\n")
+                .append(", id: ").append(id).append("\n")
                 .append(";; flags:");
         if (!query) sb.append(" qr");
         if (authoritativeAnswer) sb.append(" aa");
@@ -614,7 +667,11 @@ public class DNSMessage {
         if (recursionAvailable) sb.append(" ra");
         if (authenticData) sb.append(" ad");
         if (checkDisabled) sb.append(" cd");
-        sb.append(";\n\n");
+        sb.append("; QUERY: ").append(questions == null ? 0 : questions.length)
+                .append(", ANSWER: ").append(answers == null ? 0 : answers.length)
+                .append(", AUTHORITY: ").append(nameserverRecords == null ? 0 : nameserverRecords.length)
+                .append(", ADDITIONAL: ").append(additionalResourceRecords == null ? 0 : additionalResourceRecords.length)
+                .append("\n\n");
         if (additionalResourceRecords != null && additionalResourceRecords.length != 0) {
             for (Record record : additionalResourceRecords) {
                 if (record.type == Record.TYPE.OPT) {
@@ -625,7 +682,7 @@ public class DNSMessage {
         if (questions != null && questions.length != 0) {
             sb.append(";; QUESTION SECTION:\n");
             for (Question question : questions) {
-                sb.append("; ").append(question.toString()).append('\n');
+                sb.append(";").append(question.toString()).append('\n');
             }
         }
         if (nameserverRecords != null && nameserverRecords.length != 0) {
