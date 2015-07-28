@@ -398,7 +398,7 @@ public class Record {
             dos.write(payload);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
         return baos.toByteArray();
     }
