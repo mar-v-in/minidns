@@ -10,27 +10,37 @@
  */
 package de.measite.minidns.dnssec;
 
+import de.measite.minidns.record.NSEC3;
+
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA1;
+import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA256;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSAMD5;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA1;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA256;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA512;
 
 class AlgorithmMap {
     private Map<Byte, DigestCalculator> dsDigestMap;
     private Map<Byte, SignatureVerifier> signatureMap;
     private Map<Byte, DigestCalculator> nsecDigestMap;
 
+    @SuppressWarnings("deprecation")
     public AlgorithmMap() {
         dsDigestMap = new ConcurrentHashMap<>();
         nsecDigestMap = new ConcurrentHashMap<>();
         try {
-            dsDigestMap.put((byte) 1, new JavaSecDigestCalculator("SHA-1"));
-            nsecDigestMap.put((byte) 1, new JavaSecDigestCalculator("SHA-1"));
+            dsDigestMap.put(DIGEST_ALGORITHM_SHA1, new JavaSecDigestCalculator("SHA-1"));
+            nsecDigestMap.put(NSEC3.HASH_ALGORITHM_SHA1, new JavaSecDigestCalculator("SHA-1"));
         } catch (NoSuchAlgorithmException e) {
             // SHA-1 is MANDATORY
             throw new DNSSECValidatorInitializationException("SHA-1 is mandatory", e);
         }
         try {
-            dsDigestMap.put((byte) 2, new JavaSecDigestCalculator("SHA-256"));
+            dsDigestMap.put(DIGEST_ALGORITHM_SHA256, new JavaSecDigestCalculator("SHA-256"));
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is MANDATORY
             throw new DNSSECValidatorInitializationException("SHA-256 is mandatory", e);
@@ -38,22 +48,22 @@ class AlgorithmMap {
 
         signatureMap = new ConcurrentHashMap<>();
         try {
-            signatureMap.put((byte) 1, new RSASignatureVerifier("MD5withRSA"));
+            signatureMap.put(SIGNATURE_ALGORITHM_RSAMD5, new RSASignatureVerifier("MD5withRSA"));
         } catch (NoSuchAlgorithmException e) {
             // RSA/MD5 is DEPRECATED
         }
         try {
-            signatureMap.put((byte) 5, new RSASignatureVerifier("SHA1withRSA"));
+            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA1, new RSASignatureVerifier("SHA1withRSA"));
         } catch (NoSuchAlgorithmException e) {
             throw new DNSSECValidatorInitializationException("RSA/SHA-1 is mandatory", e);
         }
         try {
-            signatureMap.put((byte) 8, new RSASignatureVerifier("SHA256withRSA"));
+            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA256, new RSASignatureVerifier("SHA256withRSA"));
         } catch (NoSuchAlgorithmException e) {
             // RSA/SHA-256 is RECOMMENDED
         }
         try {
-            signatureMap.put((byte) 10, new RSASignatureVerifier("SHA512withRSA"));
+            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA512, new RSASignatureVerifier("SHA512withRSA"));
         } catch (NoSuchAlgorithmException e) {
             // RSA/SHA-512 is RECOMMENDED
         }

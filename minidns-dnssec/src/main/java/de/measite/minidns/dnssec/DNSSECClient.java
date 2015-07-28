@@ -14,6 +14,7 @@ import de.measite.minidns.DNSCache;
 import de.measite.minidns.DNSMessage;
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
+import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
 import de.measite.minidns.record.OPT;
@@ -44,6 +45,7 @@ public class DNSSECClient extends RecursiveDNSClient {
 
     private Verifier verifier = new Verifier();
     private Map<String, byte[]> knownSeps = new ConcurrentHashMap<>();
+    private boolean stripSignatureRecords = true;
 
     @Override
     public DNSMessage query(Question q, InetAddress address, int port) {
@@ -51,7 +53,23 @@ public class DNSSECClient extends RecursiveDNSClient {
         if (dnsMessage != null && dnsMessage.isAuthoritativeAnswer() && !dnsMessage.isAuthenticData()) {
             verify(dnsMessage);
         }
+        if (dnsMessage != null && stripSignatureRecords) {
+            dnsMessage = dnsMessage.withNewRecords(stripSignatureRecords(dnsMessage.getAnswers()),
+                    stripSignatureRecords(dnsMessage.getNameserverRecords()),
+                    stripSignatureRecords(dnsMessage.getAdditionalResourceRecords()));
+        }
         return dnsMessage;
+    }
+
+    private Record[] stripSignatureRecords(Record[] records) {
+        if (records.length == 0) return records;
+        List<Record> recordList = new ArrayList<>();
+        for (Record record : records) {
+            if (record.type != TYPE.RRSIG) {
+                recordList.add(record);
+            }
+        }
+        return recordList.toArray(new Record[recordList.size()]);
     }
 
     @Override
@@ -71,13 +89,13 @@ public class DNSSECClient extends RecursiveDNSClient {
     private void verifyAnswer(DNSMessage dnsMessage) {
         Question q = dnsMessage.getQuestions()[0];
         Record[] answers = dnsMessage.getAnswers();
-        List<Record> toBeVerified = new ArrayList<Record>(Arrays.asList(answers));
+        List<Record> toBeVerified = new ArrayList<>(Arrays.asList(answers));
         VerifySignaturesResult verifiedSignatures = verifySignatures(q, answers, toBeVerified);
         dnsMessage.setAuthenticData(verifiedSignatures.authenticData);
         if (!verifiedSignatures.signaturesPresent) return;
         for (Iterator<Record> iterator = toBeVerified.iterator(); iterator.hasNext(); ) {
             Record record = iterator.next();
-            if (record.type == Record.TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
+            if (record.type == TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
                 if (!verifySecureEntryPoint(q, record)) {
                     dnsMessage.setAuthenticData(false);
                     LOGGER.info("Verification of answer to " + q + " failed: SEP key is not properly verified.");
@@ -110,17 +128,17 @@ public class DNSSECClient extends RecursiveDNSClient {
         String zone = null;
         Record[] nameserverRecords = dnsMessage.getNameserverRecords();
         for (Record nameserverRecord : nameserverRecords) {
-            if (nameserverRecord.type == Record.TYPE.SOA)
+            if (nameserverRecord.type == TYPE.SOA)
                 zone = nameserverRecord.name;
         }
         if (zone == null)
-            throw new IllegalStateException("NSECs must always match to a SOA");
+            throw new DNSSECValidationFailedException(q, "NSECs must always match to a SOA");
         for (Record record : nameserverRecords) {
             Verifier.VerificationState result = null;
 
-            if (record.type == Record.TYPE.NSEC) {
+            if (record.type == TYPE.NSEC) {
                 result = verifier.verifyNsec(record, q);
-            } else if (record.type == Record.TYPE.NSEC3) {
+            } else if (record.type == TYPE.NSEC3) {
                 result = verifier.verifyNsec3(zone, record, q);
             }
             if (result != null) {
@@ -176,7 +194,7 @@ public class DNSSECClient extends RecursiveDNSClient {
                 LOGGER.info("Verification of answer to " + q + " failed: " + records.size() + " " + rrsig.typeCovered + " records failed!");
             }
 
-            if (q.name.equals(rrsig.signerName) && rrsig.typeCovered == Record.TYPE.DNSKEY) {
+            if (q.name.equals(rrsig.signerName) && rrsig.typeCovered == TYPE.DNSKEY) {
                 for (Iterator<Record> iterator = records.iterator(); iterator.hasNext(); ) {
                     DNSKEY dnskey = (DNSKEY) iterator.next().payloadData;
                     if ((dnskey.flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
@@ -198,6 +216,7 @@ public class DNSSECClient extends RecursiveDNSClient {
             }
             toBeVerified.remove(sigRecord);
         }
+        if (!result.signaturesPresent) result.authenticData = false;
         return result;
     }
 
@@ -217,30 +236,38 @@ public class DNSSECClient extends RecursiveDNSClient {
 
     private boolean verifySignedRecords(Question q, RRSIG rrsig, List<Record> records) {
         DNSKEY dnskey = null;
-        if (rrsig.typeCovered == Record.TYPE.DNSKEY) {
+        boolean verifiedResult = true;
+        if (rrsig.typeCovered == TYPE.DNSKEY) {
             // Key must be present
             for (Record record : records) {
-                if (record.type == Record.TYPE.DNSKEY && ((DNSKEY) record.payloadData).getKeyTag() == rrsig.keyTag) {
+                if (record.type == TYPE.DNSKEY && ((DNSKEY) record.payloadData).getKeyTag() == rrsig.keyTag) {
                     dnskey = (DNSKEY) record.payloadData;
                 }
             }
         } else {
-            DNSMessage verify = query(rrsig.signerName, Record.TYPE.DNSKEY);
+            DNSMessage verify = query(rrsig.signerName, TYPE.DNSKEY);
+            if (verify == null) {
+                throw new DNSSECValidationFailedException(q, "There is no DNSKEY " + rrsig.signerName + ", but it is used");
+            }
+            if (!verify.isAuthenticData()) {
+                LOGGER.info("DNSKEY is not authentic, no chance something signed using it is.");
+                verifiedResult = false;
+            }
             for (Record record : verify.getAnswers()) {
-                if (record.type == Record.TYPE.DNSKEY && ((DNSKEY) record.payloadData).getKeyTag() == rrsig.keyTag) {
+                if (record.type == TYPE.DNSKEY && ((DNSKEY) record.payloadData).getKeyTag() == rrsig.keyTag) {
                     dnskey = (DNSKEY) record.payloadData;
                 }
             }
         }
         if (dnskey == null) {
-            throw new DNSSECValidationFailedException(q, +records.size() + " " + rrsig.typeCovered + " record(s) are signed using an unknown key.");
+            throw new DNSSECValidationFailedException(q, records.size() + " " + rrsig.typeCovered + " record(s) are signed using an unknown key.");
         }
         Verifier.VerificationState verificationState = verifier.verify(records, rrsig, dnskey);
         switch (verificationState) {
             case FAILED:
-                throw new DNSSECValidationFailedException(q, +records.size() + " " + rrsig.typeCovered + " record(s) are not signed properly.");
+                throw new DNSSECValidationFailedException(q, records.size() + " " + rrsig.typeCovered + " record(s) are not signed properly.");
             case VERIFIED:
-                return true;
+                return verifiedResult;
             case UNVERIFIED:
                 return false;
         }
@@ -255,17 +282,24 @@ public class DNSSECClient extends RecursiveDNSClient {
                 throw new DNSSECValidationFailedException(q, "Secure entry point " + sepRecord.name + " is in list of known SEPs, but mismatches response!");
             }
         }
-        DNSMessage verify = query(sepRecord.name, Record.TYPE.DS);
-        if (verify == null || !verify.isAuthenticData()) {
+        boolean verifiedResult = true;
+        DNSMessage verify = query(sepRecord.name, TYPE.DS);
+        if (verify == null) {
+            LOGGER.info("There is no DS record for " + sepRecord.name + ", server gives no result");
             return false;
+        }
+        if (!verify.isAuthenticData()) {
+            LOGGER.info("DS is not authentic, no chance the corresponding DNSKEY is.");
+            verifiedResult = false;
         }
         DS ds = null;
         for (Record record : verify.getAnswers()) {
-            if (record.type == Record.TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
+            if (record.type == TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
                 ds = (DS) record.payloadData;
             }
         }
         if (ds == null) {
+            LOGGER.info("There is no DS record for " + sepRecord.name + ", server gives empty result");
             return false;
         }
         Verifier.VerificationState verificationState;
@@ -281,14 +315,14 @@ public class DNSSECClient extends RecursiveDNSClient {
             case UNVERIFIED:
                 return false;
             case VERIFIED:
-                return true;
+                return verifiedResult;
         }
         return false;
     }
 
     private static Record nextSignature(List<Record> records) {
         for (Record record : records) {
-            if (record.type == Record.TYPE.RRSIG) {
+            if (record.type == TYPE.RRSIG) {
                 return record;
             }
         }
@@ -337,5 +371,13 @@ public class DNSSECClient extends RecursiveDNSClient {
      */
     public void clearSecureEntryPoints() {
         knownSeps.clear();
+    }
+
+    public boolean isStripSignatureRecords() {
+        return stripSignatureRecords;
+    }
+
+    public void setStripSignatureRecords(boolean stripSignatureRecords) {
+        this.stripSignatureRecords = stripSignatureRecords;
     }
 }
