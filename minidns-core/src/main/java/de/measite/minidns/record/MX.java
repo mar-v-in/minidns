@@ -40,7 +40,7 @@ public class MX implements Data {
         this.name = NameUtil.parse(dis, data);
     }
 
-    MX(int priority, String name) {
+    public MX(int priority, String name) {
         this.priority = priority;
         this.name = name;
     }

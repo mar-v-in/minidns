@@ -34,6 +34,8 @@ public class RRSIG implements Data {
 
     /**
      * The cryptographic algorithm used to create the signature.
+     * 
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte algorithm;
 
@@ -86,7 +88,7 @@ public class RRSIG implements Data {
         dis.read(signature);
     }
 
-    RRSIG(TYPE typeCovered, byte algorithm, byte labels, long originalTtl, Date signatureExpiration, 
+    public RRSIG(TYPE typeCovered, byte algorithm, byte labels, long originalTtl, Date signatureExpiration, 
                  Date signatureInception, int keyTag, String signerName, byte[] signature) {
         this.typeCovered = typeCovered;
         this.algorithm = algorithm;

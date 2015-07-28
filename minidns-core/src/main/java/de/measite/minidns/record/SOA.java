@@ -71,7 +71,7 @@ public class SOA implements Data {
         minimum = dis.readInt() & 0xFFFFFFFFL;
     }
 
-    SOA(String mname, String rname, long serial, int refresh, int retry, int expire, long minimum) {
+    public SOA(String mname, String rname, long serial, int refresh, int retry, int expire, long minimum) {
         this.mname = mname;
         this.rname = rname;
         this.serial = serial;

@@ -47,7 +47,7 @@ public class NSEC implements Data {
         types = readTypeBitMap(typeBitmap);
     }
 
-    NSEC(String next, TYPE[] types) {
+    public NSEC(String next, TYPE[] types) {
         this.next = next;
         this.types = types;
         this.typeBitmap = createTypeBitMap(types);
@@ -67,7 +67,7 @@ public class NSEC implements Data {
             dos.write(typeBitmap);
         } catch (IOException e) {
             // Should never happen
-            throw new IllegalStateException(e);
+            throw new RuntimeException(e);
         }
 
         return baos.toByteArray();

@@ -30,11 +30,15 @@ public class DS implements Data {
 
     /**
      * The cryptographic algorithm used to create the signature.
+     *
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte algorithm;
 
     /**
      * The algorithm used to construct the digest.
+     *
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte digestType;
 
@@ -51,7 +55,7 @@ public class DS implements Data {
         dis.read(digest);
     }
 
-    DS(int keyTag, byte algorithm, byte digestType, byte[] digest) {
+    public DS(int keyTag, byte algorithm, byte digestType, byte[] digest) {
         this.keyTag = keyTag;
         this.algorithm = algorithm;
         this.digestType = digestType;

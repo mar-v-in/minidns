@@ -40,17 +40,24 @@ public class DNSKEY implements Data {
     public static final short FLAG_ZONE = 0x100;
 
     /**
+     * Use the protocol defined in RFC 4034.
+     */
+    public static final byte PROTOCOL_RFC4034 = 3;
+
+    /**
      * Bitmap of flags: {@link #FLAG_SECURE_ENTRY_POINT}, {@link #FLAG_REVOKE}, {@link #FLAG_ZONE}.
      */
     public final short flags;
 
     /**
-     * Must be 3 as of RFC 4034.
+     * Must be {@link #PROTOCOL_RFC4034}.
      */
     public final byte protocol;
 
     /**
      * The public key's cryptographic algorithm used.
+     *
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte algorithm;
 
@@ -72,7 +79,7 @@ public class DNSKEY implements Data {
         dis.readFully(key);
     }
 
-    DNSKEY(short flags, byte protocol, byte algorithm, byte[] key) {
+    public DNSKEY(short flags, byte protocol, byte algorithm, byte[] key) {
         this.flags = flags;
         this.protocol = protocol;
         this.algorithm = algorithm;

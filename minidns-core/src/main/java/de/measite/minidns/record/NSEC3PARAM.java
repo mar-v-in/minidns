@@ -25,6 +25,8 @@ public class NSEC3PARAM implements Data {
 
     /**
      * The cryptographic hash algorithm used.
+     * 
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte hashAlgorithm;
 

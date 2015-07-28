@@ -31,7 +31,14 @@ public class NSEC3 implements Data {
     public static final byte FLAG_OPT_OUT = 0x1;
 
     /**
+     * SHA-1.
+     */
+    public static final byte HASH_ALGORITHM_SHA1 = 1;
+
+    /**
      * The cryptographic hash algorithm used.
+     * 
+     * See {@link de.measite.minidns.DNSSECConstants} for possible values.
      */
     public final byte hashAlgorithm;
 
