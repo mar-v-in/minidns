@@ -16,12 +16,13 @@ import de.measite.minidns.LRUCache;
 import de.measite.minidns.Record;
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.DNSKEY;
+import de.measite.minidns.record.RRSIG;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.net.UnknownHostException;
 import java.security.PrivateKey;
+import java.util.Date;
 
 import static de.measite.minidns.DNSWorld.a;
 import static de.measite.minidns.DNSWorld.applyZones;
@@ -29,10 +30,12 @@ import static de.measite.minidns.DNSWorld.dnskey;
 import static de.measite.minidns.DNSWorld.ns;
 import static de.measite.minidns.DNSWorld.record;
 import static de.measite.minidns.DNSWorld.rootZone;
+import static de.measite.minidns.DNSWorld.rrsig;
 import static de.measite.minidns.DNSWorld.zone;
 import static de.measite.minidns.dnssec.DNSSECWorld.ds;
 import static de.measite.minidns.dnssec.DNSSECWorld.generatePrivateKey;
 import static de.measite.minidns.dnssec.DNSSECWorld.publicKey;
+import static de.measite.minidns.dnssec.DNSSECWorld.rrsigRecord;
 import static de.measite.minidns.dnssec.DNSSECWorld.sign;
 import static de.measite.minidns.dnssec.DNSSECWorld.signedRootZone;
 import static de.measite.minidns.dnssec.DNSSECWorld.signedZone;
@@ -81,7 +84,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void basicValidTest() throws UnknownHostException {
+    public void basicValidTest() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -108,7 +111,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void missingDelegationTest() throws UnknownHostException {
+    public void missingDelegationTest() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -133,7 +136,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unsignedRootTest() throws UnknownHostException {
+    public void unsignedRootTest() {
         applyZones(client,
                 rootZone(
                         record("com", ds("com", digestType, comKSK)),
@@ -154,7 +157,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void noRootSepTest() throws UnknownHostException {
+    public void noRootSepTest() {
         client.clearSecureEntryPoints();
         applyZones(client,
                 signedRootZone(
@@ -182,7 +185,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unsignedZoneTest() throws UnknownHostException {
+    public void unsignedZoneTest() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -196,6 +199,154 @@ public class DNSSECClientTest {
                                 record("ns.com", a("1.1.1.1")))
                 ), zone("com", "ns.com", "1.1.1.1",
                         record("example.com", a("1.1.1.2"))
+                )
+        );
+        DNSMessage message = client.query("example.com", Record.TYPE.A);
+        assertNotNull(message);
+        assertFalse(message.isAuthenticData());
+        checkCorrectExampleMessage(message);
+    }
+
+    @Test(expected = DNSSECValidationFailedException.class)
+    public void wrongDnsKeyTest() {
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comKSK, "com", comPrivateKSK, algorithm,
+                                record("com", comKSK)),
+                        sign(comZSK, "com", comPrivateZSK, algorithm,
+                                record("example.com", a("1.1.1.2")))
+                )
+        );
+        client.query("example.com", Record.TYPE.A);
+    }
+
+    @Test(expected = DNSSECValidationFailedException.class)
+    public void noDnsKeyTest() {
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comZSK, "com", comPrivateZSK, algorithm,
+                                record("example.com", a("1.1.1.2")))
+                )
+        );
+        client.query("example.com", Record.TYPE.A);
+    }
+
+    @Test(expected = DNSSECValidationFailedException.class)
+    public void invalidRrSigtest() {
+        Record invalidRrSig = rrsigRecord(comZSK, "com", comPrivateZSK, algorithm, record("example.com", a("1.1.1.2")));
+        byte[] signatureMod = ((RRSIG) invalidRrSig.payloadData).signature;
+        signatureMod[signatureMod.length / 2]++;
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), zone("com", "ns.com", "1.1.1.1",
+                        record("com", comKSK),
+                        record("com", comZSK),
+                        record("example.com", a("1.1.1.2")),
+                        invalidRrSig
+                )
+        );
+        client.query("example.com", Record.TYPE.A);
+    }
+
+    @Test
+    public void unknownAlgorithmTest() {
+        RRSIG unknownRrsig = rrsig(Record.TYPE.A, 213, 2, 3600, new Date(), new Date(), comZSK.getKeyTag(), "com", new byte[0]);
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), zone("com", "ns.com", "1.1.1.1",
+                        record("com", comKSK),
+                        record("com", comZSK),
+                        record("example.com", a("1.1.1.2")),
+                        record("example.com", unknownRrsig)
+                )
+        );
+        DNSMessage message = client.query("example.com", Record.TYPE.A);
+        assertNotNull(message);
+        assertFalse(message.isAuthenticData());
+        checkCorrectExampleMessage(message);
+    }
+
+    @Test(expected = DNSSECValidationFailedException.class)
+    public void invalidDelegationTest() {
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds(comKSK.getKeyTag(), algorithm, digestType, new byte[0]))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comKSK, "com", comPrivateKSK, algorithm,
+                                record("com", comKSK),
+                                record("com", comZSK)),
+                        sign(comZSK, "com", comPrivateZSK, algorithm,
+                                record("example.com", a("1.1.1.2")))
+                )
+        );
+        client.query("example.com", Record.TYPE.A);
+    }
+
+    @Test
+    public void unknownDelegationDigestTypeTest() {
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds(comKSK.getKeyTag(), algorithm, (byte) 213, new byte[0]))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comKSK, "com", comPrivateKSK, algorithm,
+                                record("com", comKSK),
+                                record("com", comZSK)),
+                        sign(comZSK, "com", comPrivateZSK, algorithm,
+                                record("example.com", a("1.1.1.2")))
                 )
         );
         DNSMessage message = client.query("example.com", Record.TYPE.A);

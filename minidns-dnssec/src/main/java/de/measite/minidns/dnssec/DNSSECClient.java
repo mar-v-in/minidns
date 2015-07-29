@@ -53,7 +53,7 @@ public class DNSSECClient extends RecursiveDNSClient {
         if (dnsMessage != null && dnsMessage.isAuthoritativeAnswer() && !dnsMessage.isAuthenticData()) {
             verify(dnsMessage);
         }
-        if (dnsMessage != null && stripSignatureRecords) {
+        if (dnsMessage != null && dnsMessage.isAuthoritativeAnswer() && stripSignatureRecords) {
             dnsMessage = dnsMessage.withNewRecords(stripSignatureRecords(dnsMessage.getAnswers()),
                     stripSignatureRecords(dnsMessage.getNameserverRecords()),
                     stripSignatureRecords(dnsMessage.getAdditionalResourceRecords()));
@@ -269,9 +269,9 @@ public class DNSSECClient extends RecursiveDNSClient {
             case VERIFIED:
                 return verifiedResult;
             case UNVERIFIED:
+            default:
                 return false;
         }
-        return false;
     }
 
     private boolean verifySecureEntryPoint(Question q, Record sepRecord) {
@@ -302,13 +302,7 @@ public class DNSSECClient extends RecursiveDNSClient {
             LOGGER.info("There is no DS record for " + sepRecord.name + ", server gives empty result");
             return false;
         }
-        Verifier.VerificationState verificationState;
-        try {
-            verificationState = verifier.verify(sepRecord, ds);
-        } catch (UnsupportedOperationException e) {
-            LOGGER.warning("Verification of answer to " + q + " failed: " + e);
-            return false;
-        }
+        Verifier.VerificationState verificationState = verifier.verify(sepRecord, ds);
         switch (verificationState) {
             case FAILED:
                 throw new DNSSECValidationFailedException(q, "SEP is not properly signed by parent DS!");

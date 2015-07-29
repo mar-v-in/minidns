@@ -80,7 +80,7 @@ public class DNSSECWorld extends DNSWorld {
         }
     }
 
-    public static Record rrsigRecord(DNSKEY key, String signerName, PrivateKey privateKey, byte algorithm, Record[] records) {
+    public static Record rrsigRecord(DNSKEY key, String signerName, PrivateKey privateKey, byte algorithm, Record... records) {
         Record.TYPE typeCovered = records[0].type;
         String name = records[0].name;
         int labels = name.isEmpty() ? 0 : name.split("\\.").length;

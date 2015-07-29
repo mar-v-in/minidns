@@ -48,7 +48,12 @@ public class Verifier {
         byte[] combined = new byte[dnskeyOwner.length + dnskeyData.length];
         System.arraycopy(dnskeyOwner, 0, combined, 0, dnskeyOwner.length);
         System.arraycopy(dnskeyData, 0, combined, dnskeyOwner.length, dnskeyData.length);
-        byte[] digest = digestCalculator.digest(combined);
+        byte[] digest;
+        try {
+            digest = digestCalculator.digest(combined);
+        } catch (Exception ignored) {
+            return VerificationState.UNVERIFIED;
+        }
 
         if (!Arrays.equals(digest, ds.digest)) return VerificationState.FAILED;
         return VerificationState.VERIFIED;
