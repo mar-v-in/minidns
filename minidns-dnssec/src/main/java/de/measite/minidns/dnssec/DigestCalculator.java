@@ -10,6 +10,6 @@
  */
 package de.measite.minidns.dnssec;
 
-public interface DigestCalculator {
+interface DigestCalculator {
     byte[] digest(byte[] bytes);
 }

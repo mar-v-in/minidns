@@ -13,7 +13,7 @@ package de.measite.minidns.dnssec;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-public class JavaSecDigestCalculator implements DigestCalculator {
+class JavaSecDigestCalculator implements DigestCalculator {
     private MessageDigest md;
 
     public JavaSecDigestCalculator(String algorithm) throws NoSuchAlgorithmException {

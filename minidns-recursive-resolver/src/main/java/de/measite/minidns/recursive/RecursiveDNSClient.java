@@ -51,14 +51,30 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         };
     }
 
-    public RecursiveDNSClient(DNSCache dnsCache) {
-        super(dnsCache);
+    /**
+     * Create a new recursive DNS client with the given DNS cache.
+     *
+     * @param cache The backend DNS cache.
+     */
+    public RecursiveDNSClient(DNSCache cache) {
+        super(cache);
     }
 
+    /**
+     * Creates a new recursive DNS client that uses the given Map as cache.
+     *
+     * @param cache the Map to use as cache for DNS results.
+     */
     public RecursiveDNSClient(Map<Question, DNSMessage> cache) {
         super(cache);
     }
 
+    /**
+     * Recursively query the DNS system for one entry.
+     *
+     * @param q The question section of the DNS query.
+     * @return The response (or null on timeout/error).
+     */
     @Override
     public DNSMessage query(Question q) {
         DNSMessage message = queryRecursive(0, q);
@@ -67,7 +83,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         return message;
     }
 
-    public DNSMessage queryRecursive(int depth, Question q) {
+    private DNSMessage queryRecursive(int depth, Question q) {
         InetAddress target = ROOT_SERVERS[random.nextInt(ROOT_SERVERS.length)];
         return queryRecursive(depth, q, target);
     }

@@ -70,6 +70,10 @@ public class DNSSECWorld extends DNSWorld {
         return new SignedRRSet(records, rrsigRecord(key, signerName, privateKey, algorithm, records));
     }
 
+    public static SignedRRSet sign(PrivateKey privateKey, RRSIG rrsig, Record... records) {
+        return new SignedRRSet(records, rrsigRecord(privateKey, rrsig, records));
+    }
+
     public static class SignedRRSet {
         Record[] records;
         Record signature;
@@ -89,9 +93,14 @@ public class DNSSECWorld extends DNSWorld {
         Date signatureInception = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
         RRSIG rrsig = rrsig(typeCovered, algorithm, labels, originalTtl, signatureExpiration, signatureInception,
                 key.getKeyTag(), signerName, new byte[0]);
+        return rrsigRecord(privateKey, rrsig, records);
+    }
+
+    public static Record rrsigRecord(PrivateKey privateKey, RRSIG rrsig, Record... records) {
         byte[] bytes = Verifier.combine(rrsig, Arrays.asList(records));
-        return record(name, originalTtl, rrsig(typeCovered, algorithm, labels, originalTtl, signatureExpiration,
-                signatureInception, key.getKeyTag(), signerName, sign(privateKey, algorithm, bytes)));
+        return record(records[0].name, rrsig.originalTtl, rrsig(rrsig.typeCovered, rrsig.algorithm, rrsig.labels, rrsig.originalTtl,
+                rrsig.signatureExpiration, rrsig.signatureInception, rrsig.keyTag, rrsig.signerName, 
+                sign(privateKey, rrsig.algorithm, bytes)));
     }
 
     public static DS ds(String name, byte digestType, DNSKEY dnskey) {

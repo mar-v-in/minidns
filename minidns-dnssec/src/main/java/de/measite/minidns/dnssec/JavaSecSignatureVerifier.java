@@ -15,7 +15,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 
-public abstract class JavaSecSignatureVerifier implements SignatureVerifier{
+abstract class JavaSecSignatureVerifier implements SignatureVerifier{
     private final KeyFactory keyFactory;
     private final String signatureAlgorithm;
 

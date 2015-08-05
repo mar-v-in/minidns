@@ -17,7 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.RSAPublicKeySpec;
 
-public class RSASignatureVerifier extends JavaSecSignatureVerifier {
+class RSASignatureVerifier extends JavaSecSignatureVerifier {
     public RSASignatureVerifier(String algorithm) throws NoSuchAlgorithmException {
         super("RSA", algorithm);
     }

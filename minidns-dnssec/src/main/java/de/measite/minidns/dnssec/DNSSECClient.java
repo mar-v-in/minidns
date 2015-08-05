@@ -387,10 +387,21 @@ public class DNSSECClient extends RecursiveDNSClient {
         knownSeps.clear();
     }
 
+    /**
+     * Whether signature records (RRSIG) are stripped from the resulting {@link DNSMessage}.
+     *
+     * Default is {@code true}.
+     *
+     * @return Whether signature records are stripped.
+     */
     public boolean isStripSignatureRecords() {
         return stripSignatureRecords;
     }
 
+    /**
+     * Enable or disable stripping of signature records (RRSIG) from the result {@link DNSMessage}.
+     * @param stripSignatureRecords Whether signature records shall be stripped.
+     */
     public void setStripSignatureRecords(boolean stripSignatureRecords) {
         this.stripSignatureRecords = stripSignatureRecords;
     }

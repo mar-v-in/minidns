@@ -141,6 +141,13 @@ public abstract class AbstractDNSClient {
         return dnsMessage;
     }
 
+    /**
+     * Whether a response from the DNS system should be cached or not.
+     *
+     * @param q          The question the response message should answer.
+     * @param dnsMessage The response message received using the DNS client.
+     * @return True, if the response should be cached, false otherwise.
+     */
     protected boolean isResponseCacheable(Question q, DNSMessage dnsMessage) {
         for (Record record : dnsMessage.getAnswers()) {
             if (record.isAnswer(q)) {
@@ -150,6 +157,12 @@ public abstract class AbstractDNSClient {
         return false;
     }
 
+    /**
+     * Builds a {@link DNSMessage} object carrying the given Question.
+     *
+     * @param question {@link Question} to be put in the DNS request.
+     * @return A {@link DNSMessage} requesting the answer for the given Question.
+     */
     protected abstract DNSMessage buildMessage(Question question);
 
     /**
@@ -209,10 +222,22 @@ public abstract class AbstractDNSClient {
         return query(q, address, 53);
     }
 
+    /**
+     * Returns the currently used {@link DNSDataSource}. See {@link #setDataSource(DNSDataSource)} for details.
+     *
+     * @return The currently used {@link DNSDataSource}
+     */
     public DNSDataSource getDataSource() {
         return dataSource;
     }
 
+    /**
+     * Set a {@link DNSDataSource} to be used by the DNSClient.
+     * The default implementation will direct all queries directly to the Internet.
+     *
+     * This can be used to define a non-default handling for outgoing data. This can be useful to redirect the requests
+     * to a proxy or to modify requests after or responses before they are handled by the DNSClient implementation.
+     */
     public void setDataSource(DNSDataSource dataSource) {
         this.dataSource = dataSource;
     }

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Verifier {
+class Verifier {
     public enum VerificationState {
         UNVERIFIED, FAILED, VERIFIED
     }
