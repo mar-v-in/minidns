@@ -28,18 +28,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Verifier {
     public enum VerificationState {
         UNVERIFIED, FAILED, VERIFIED
     }
 
+    private Logger LOGGER = Logger.getLogger(Verifier.class.getName());
+    
     private AlgorithmMap algorithmMap = new AlgorithmMap();
 
     public VerificationState verify(Record dnskeyRecord, DS ds) {
         DNSKEY dnskey = (DNSKEY) dnskeyRecord.getPayload();
         DigestCalculator digestCalculator = algorithmMap.getDsDigestCalculator(ds.digestType);
         if (digestCalculator == null) {
+            LOGGER.fine("Can not verify, no DigestCalculator " + ds.digestType);
             return VerificationState.UNVERIFIED;
         }
 
@@ -51,7 +56,8 @@ public class Verifier {
         byte[] digest;
         try {
             digest = digestCalculator.digest(combined);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Can not verify, DigestCalculator " + ds.digestType + " threw exception", e);
             return VerificationState.UNVERIFIED;
         }
 
@@ -62,6 +68,7 @@ public class Verifier {
     public VerificationState verify(List<Record> records, RRSIG rrsig, DNSKEY key) {
         SignatureVerifier signatureVerifier = algorithmMap.getSignatureVerifier(rrsig.algorithm);
         if (signatureVerifier == null) {
+            LOGGER.fine("Can not verify, no SignatureVerifier " + rrsig.algorithm);
             return VerificationState.UNVERIFIED;
         }
 
@@ -110,48 +117,42 @@ public class Verifier {
         // Write RRSIG without signature
         try {
             rrsig.writePartialSignature(dos);
-        } catch (IOException e) {
-            // Never happens
-            throw new RuntimeException(e);
-        }
 
-        String sigName = records.get(0).name;
-        if (!sigName.isEmpty()) {
-            String[] name = sigName.split("\\.");
-            if (name.length > rrsig.labels) {
-                // Expand wildcards
-                sigName = name[name.length - 1];
-                for (int i = 1; i < rrsig.labels; i++) {
-                    sigName = name[name.length - i - 1] + "." + sigName;
-                }
-                sigName = "*." + sigName;
-            } else if (name.length < rrsig.labels) {
-                throw new DNSSECValidationFailedException("Invalid RRsig record");
-            }
-        }
-
-        List<byte[]> recordBytes = new ArrayList<>();
-        for (Record record : records) {
-            Record ref = new Record(sigName.toLowerCase(), record.type, record.clazzValue, rrsig.originalTtl, record.payloadData);
-            recordBytes.add(ref.toByteArray());
-        }
-
-        // Sort correctly (cause they might be ordered randomly)
-        final int offset = NameUtil.size(sigName) + 10; // Where the RDATA begins
-        Collections.sort(recordBytes, new Comparator<byte[]>() {
-            @Override
-            public int compare(byte[] b1, byte[] b2) {
-                for (int i = offset; i < b1.length && i < b2.length; i++) {
-                    if (b1[i] != b2[i]) {
-                        return (b1[i] & 0xFF) - (b2[i] & 0xFF);
+            String sigName = records.get(0).name;
+            if (!sigName.isEmpty()) {
+                String[] name = sigName.split("\\.");
+                if (name.length > rrsig.labels) {
+                    // Expand wildcards
+                    sigName = name[name.length - 1];
+                    for (int i = 1; i < rrsig.labels; i++) {
+                        sigName = name[name.length - i - 1] + "." + sigName;
                     }
+                    sigName = "*." + sigName;
+                } else if (name.length < rrsig.labels) {
+                    throw new DNSSECValidationFailedException("Invalid RRsig record");
                 }
-                return b1.length - b2.length;
             }
-        });
 
+            List<byte[]> recordBytes = new ArrayList<>();
+            for (Record record : records) {
+                Record ref = new Record(sigName.toLowerCase(), record.type, record.clazzValue, rrsig.originalTtl, record.payloadData);
+                recordBytes.add(ref.toByteArray());
+            }
 
-        try {
+            // Sort correctly (cause they might be ordered randomly)
+            final int offset = NameUtil.size(sigName) + 10; // Where the RDATA begins
+            Collections.sort(recordBytes, new Comparator<byte[]>() {
+                @Override
+                public int compare(byte[] b1, byte[] b2) {
+                    for (int i = offset; i < b1.length && i < b2.length; i++) {
+                        if (b1[i] != b2[i]) {
+                            return (b1[i] & 0xFF) - (b2[i] & 0xFF);
+                        }
+                    }
+                    return b1.length - b2.length;
+                }
+            });
+
             for (byte[] recordByte : recordBytes) {
                 dos.write(recordByte);
             }

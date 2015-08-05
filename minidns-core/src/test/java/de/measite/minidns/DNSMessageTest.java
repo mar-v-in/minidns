@@ -92,8 +92,7 @@ public class DNSMessageTest {
         assertEquals("legacy-sun.oraclegha.com", answers[1-cname].getName());
         assertTrue(answers[1 - cname].getPayload() instanceof A);
         assertEquals(TYPE.A, answers[1 - cname].getPayload().getType());
-        assertEquals("156.151.59.35",
-                ((A) (answers[1 - cname].getPayload())).toString());
+        assertEquals("156.151.59.35", answers[1 - cname].getPayload().toString());
     }
 
 
@@ -106,8 +105,7 @@ public class DNSMessageTest {
         assertEquals("google.com", answers[0].getName());
         assertTrue(answers[0].getPayload() instanceof AAAA);
         assertEquals(TYPE.AAAA, answers[0].getPayload().getType());
-        assertEquals("2a00:1450:400c:c02:0:0:0:8a",
-                     ((AAAA)(answers[0].getPayload())).toString());
+        assertEquals("2a00:1450:400c:c02:0:0:0:8a", answers[0].getPayload().toString());
     }
 
 
@@ -117,7 +115,7 @@ public class DNSMessageTest {
         assertFalse(m.isAuthoritativeAnswer());
         Record[] answers = m.getAnswers();
         assertEquals(5, answers.length);
-        Map<Integer, String> mxes = new TreeMap<Integer, String>();
+        Map<Integer, String> mxes = new TreeMap<>();
         for(Record r : answers) {
             assertEquals("gmail.com", r.getName());
             Data d = r.getPayload();

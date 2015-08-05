@@ -129,7 +129,7 @@ public class NSEC3 implements Data {
                 .append(salt.length == 0 ? "-" : new BigInteger(1, salt).toString(16).toUpperCase()).append(' ')
                 .append(Base32.encodeToString(nextHashed));
         for (TYPE type : types) {
-            sb.append(' ').append(type.name());
+            sb.append(' ').append(type);
         }
         return sb.toString();
     }

@@ -624,9 +624,9 @@ public class DNSMessage {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("DNSMessage@")
-                .append(id).append("(")
-                .append(opcode == null ? "null" : opcode.name()).append(" ")
-                .append(responseCode == null ? "null" : responseCode.name());
+                .append(id).append('(')
+                .append(opcode).append(' ')
+                .append(responseCode);
         if (!query) sb.append(" qr");
         if (authoritativeAnswer) sb.append(" aa");
         if (truncated) sb.append(" tr");
@@ -637,35 +637,35 @@ public class DNSMessage {
         sb.append("){");
         if (questions != null) {
             for (Question question : questions) {
-                sb.append("[Q: ").append(question.toString()).append("]");
+                sb.append("[Q: ").append(question.toString()).append(']');
             }
         }
         if (answers != null) {
             for (Record record : answers) {
-                sb.append(" [A: ").append(record.toString()).append("]");
+                sb.append(" [A: ").append(record.toString()).append(']');
             }
         }
         if (nameserverRecords != null) {
             for (Record record : nameserverRecords) {
-                sb.append(" [N: ").append(record.toString()).append("]");
+                sb.append(" [N: ").append(record.toString()).append(']');
             }
         }
         if (additionalResourceRecords != null) {
             for (Record record : additionalResourceRecords) {
                 if (record.type == Record.TYPE.OPT) {
-                    sb.append(" [X: ").append(OPT.optRecordToString(record)).append("]");
+                    sb.append(" [X: ").append(OPT.optRecordToString(record)).append(']');
                 } else {
-                    sb.append(" [X: ").append(record.toString()).append("]");
+                    sb.append(" [X: ").append(record.toString()).append(']');
                 }
             }
         }
-        return sb.append("}").toString();
+        return sb.append('}').toString();
     }
 
     public String toPrintableString() {
         StringBuilder sb = new StringBuilder(";; ->>HEADER<<-")
-                .append(" opcode: ").append(opcode == null ? "null" : opcode.name())
-                .append(", status: ").append(responseCode == null ? "null" : responseCode.name())
+                .append(" opcode: ").append(opcode)
+                .append(", status: ").append(responseCode)
                 .append(", id: ").append(id).append("\n")
                 .append(";; flags:");
         if (!query) sb.append(" qr");
@@ -690,7 +690,7 @@ public class DNSMessage {
         if (questions != null && questions.length != 0) {
             sb.append(";; QUESTION SECTION:\n");
             for (Question question : questions) {
-                sb.append(";").append(question.toString()).append('\n');
+                sb.append(';').append(question.toString()).append('\n');
             }
         }
         if (nameserverRecords != null && nameserverRecords.length != 0) {

@@ -10,14 +10,6 @@
  */
 package de.measite.minidns;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.HashMap;
-
-import java.util.logging.Logger;
-
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.AAAA;
 import de.measite.minidns.record.CNAME;
@@ -38,6 +30,13 @@ import de.measite.minidns.record.SRV;
 import de.measite.minidns.record.TLSA;
 import de.measite.minidns.record.TXT;
 import de.measite.minidns.util.NameUtil;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.logging.Logger;
 
 /**
  * A generic DNS record.
@@ -145,10 +144,8 @@ public class Record {
         private final static HashMap<Integer, TYPE> INVERSE_LUT =
                                         new HashMap<Integer, TYPE>();
 
-        /**
-         * Initialize the reverse lookup table.
-         */
         static {
+            // Initialize the reverse lookup table.
             for(TYPE t: TYPE.values()) {
                 INVERSE_LUT.put(t.getValue(), t);
             }
@@ -199,10 +196,8 @@ public class Record {
         private final static HashMap<Integer, CLASS> INVERSE_LUT =
                                             new HashMap<Integer, CLASS>();
 
-        /**
-         * Initialize the interal reverse lookup table.
-         */
         static {
+            // Initialize the interal reverse lookup table.
             for(CLASS c: CLASS.values()) {
                 INVERSE_LUT.put(c.getValue(), c);
             }

@@ -98,24 +98,24 @@ public class DNSSECClient extends RecursiveDNSClient {
             if (record.type == TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
                 if (!verifySecureEntryPoint(q, record)) {
                     dnsMessage.setAuthenticData(false);
-                    LOGGER.info("Verification of answer to " + q + " failed: SEP key is not properly verified.");
+                    LOGGER.fine("Verification of answer to " + q + " failed: SEP key is not properly verified.");
                 }
                 if (!verifiedSignatures.sepSignaturePresent) {
                     // TODO: Not sure if this is a problem or should be noted at all? It's at least abnormal...
-                    LOGGER.info("SEP key is not self-signed.");
+                    LOGGER.finer("SEP key is not self-signed.");
                 }
                 iterator.remove();
             }
         }
         if (verifiedSignatures.sepSignatureRequired && !verifiedSignatures.sepSignaturePresent) {
             dnsMessage.setAuthenticData(false);
-            LOGGER.info("Verification of answer to " + q + " failed: DNSKEY records need to be signed using a SEP key.");
+            LOGGER.fine("Verification of answer to " + q + " failed: DNSKEY records need to be signed using a SEP key.");
         }
         if (!toBeVerified.isEmpty()) {
             if (toBeVerified.size() != answers.length) {
                 throw new DNSSECValidationFailedException(q, "Only some records are signed!");
             } else {
-                LOGGER.info("Answer to " + q + " is unsigned!");
+                LOGGER.fine("Answer to " + q + " is unsigned!");
                 dnsMessage.setAuthenticData(false);
             }
         }
@@ -156,14 +156,14 @@ public class DNSSECClient extends RecursiveDNSClient {
         if (nsecPresent && !validNsec) {
             throw new DNSSECValidationFailedException(q, "Invalid NSEC!");
         }
-        List<Record> toBeVerified = new ArrayList<Record>(Arrays.asList(nameserverRecords));
+        List<Record> toBeVerified = new ArrayList<>(Arrays.asList(nameserverRecords));
         VerifySignaturesResult verifiedSignatures = verifySignatures(q, nameserverRecords, toBeVerified);
         dnsMessage.setAuthenticData(validNsec && verifiedSignatures.authenticData);
         if (!toBeVerified.isEmpty()) {
             if (toBeVerified.size() != nameserverRecords.length) {
                 throw new DNSSECValidationFailedException(q, "Only some nameserver records are signed!");
             } else {
-                LOGGER.info("Answer to " + q + " is unsigned!");
+                LOGGER.fine("Answer to " + q + " is unsigned!");
                 dnsMessage.setAuthenticData(false);
             }
         }
@@ -191,7 +191,7 @@ public class DNSSECClient extends RecursiveDNSClient {
 
             if (!verifySignedRecords(q, rrsig, records)) {
                 result.authenticData = false;
-                LOGGER.info("Verification of answer to " + q + " failed: " + records.size() + " " + rrsig.typeCovered + " records failed!");
+                LOGGER.fine("Verification of answer to " + q + " failed: " + records.size() + " " + rrsig.typeCovered + " records failed!");
             }
 
             if (q.name.equals(rrsig.signerName) && rrsig.typeCovered == TYPE.DNSKEY) {
@@ -210,7 +210,7 @@ public class DNSSECClient extends RecursiveDNSClient {
             }
 
             if (!isParentOrSelf(sigRecord.name, rrsig.signerName)) {
-                LOGGER.info("You cross-signed your records at " + sigRecord.name + " with a key from " + rrsig.signerName + ". That's nice, but we don't care.");
+                LOGGER.finer("Records at " + sigRecord.name + " are cross-signed with a key from " + rrsig.signerName);
             } else {
                 toBeVerified.removeAll(records);
             }
@@ -250,7 +250,7 @@ public class DNSSECClient extends RecursiveDNSClient {
                 throw new DNSSECValidationFailedException(q, "There is no DNSKEY " + rrsig.signerName + ", but it is used");
             }
             if (!verify.isAuthenticData()) {
-                LOGGER.info("DNSKEY is not authentic, no chance something signed using it is.");
+                LOGGER.fine("DNSKEY is not authentic, no chance something signed using it is.");
                 verifiedResult = false;
             }
             for (Record record : verify.getAnswers()) {
@@ -285,11 +285,11 @@ public class DNSSECClient extends RecursiveDNSClient {
         boolean verifiedResult = true;
         DNSMessage verify = query(sepRecord.name, TYPE.DS);
         if (verify == null) {
-            LOGGER.info("There is no DS record for " + sepRecord.name + ", server gives no result");
+            LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives no result");
             return false;
         }
         if (!verify.isAuthenticData()) {
-            LOGGER.info("DS is not authentic, no chance the corresponding DNSKEY is.");
+            LOGGER.fine("DS is not authentic, no chance the corresponding DNSKEY is.");
             verifiedResult = false;
         }
         DS ds = null;
@@ -299,19 +299,19 @@ public class DNSSECClient extends RecursiveDNSClient {
             }
         }
         if (ds == null) {
-            LOGGER.info("There is no DS record for " + sepRecord.name + ", server gives empty result");
+            LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives empty result");
             return false;
         }
         Verifier.VerificationState verificationState = verifier.verify(sepRecord, ds);
         switch (verificationState) {
             case FAILED:
                 throw new DNSSECValidationFailedException(q, "SEP is not properly signed by parent DS!");
-            case UNVERIFIED:
-                return false;
             case VERIFIED:
                 return verifiedResult;
+            case UNVERIFIED:
+            default:
+                return false;
         }
-        return false;
     }
 
     private static Record nextSignature(List<Record> records) {

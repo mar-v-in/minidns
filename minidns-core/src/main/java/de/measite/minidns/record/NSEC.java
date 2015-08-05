@@ -78,7 +78,7 @@ public class NSEC implements Data {
         StringBuilder sb = new StringBuilder()
                 .append(next).append('.');
         for (TYPE type : types) {
-            sb.append(' ').append(type.name());
+            sb.append(' ').append(type);
         }
         return sb.toString();
     }

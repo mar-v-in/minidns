@@ -137,7 +137,7 @@ public class RRSIG implements Data {
         SimpleDateFormat dateFormat = new SimpleDateFormat("YYYYMMddHHmmss");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         StringBuilder sb = new StringBuilder()
-                .append(typeCovered.name()).append(' ')
+                .append(typeCovered).append(' ')
                 .append(algorithm).append(' ')
                 .append(labels).append(' ')
                 .append(originalTtl).append(' ')
