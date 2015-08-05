@@ -18,8 +18,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA1;
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA256;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_DSA;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSAMD5;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA1;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA256;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA512;
 
@@ -53,7 +56,16 @@ class AlgorithmMap {
             // RSA/MD5 is DEPRECATED
         }
         try {
-            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA1, new RSASignatureVerifier("SHA1withRSA"));
+            DSASignatureVerifier sha1withDSA = new DSASignatureVerifier("SHA1withDSA");
+            signatureMap.put(SIGNATURE_ALGORITHM_DSA, sha1withDSA);
+            signatureMap.put(SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1, sha1withDSA);
+        } catch (NoSuchAlgorithmException e) {
+            // DSA/SHA-1 is OPTIONAL
+        }
+        try {
+            RSASignatureVerifier sha1withRSA = new RSASignatureVerifier("SHA1withRSA");
+            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA1, sha1withRSA);
+            signatureMap.put(SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1, sha1withRSA);
         } catch (NoSuchAlgorithmException e) {
             throw new DNSSECValidatorInitializationException("RSA/SHA-1 is mandatory", e);
         }
