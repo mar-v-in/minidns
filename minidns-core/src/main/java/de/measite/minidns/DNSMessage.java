@@ -662,7 +662,11 @@ public class DNSMessage {
         return sb.append('}').toString();
     }
 
-    public String toPrintableString() {
+    /**
+     * Returns this message as a String suitable for terminal output. 
+     * The format is loosely based on the output provided by {@code dig}.
+     */
+    public String asTerminalOutput() {
         StringBuilder sb = new StringBuilder(";; ->>HEADER<<-")
                 .append(" opcode: ").append(opcode)
                 .append(", status: ").append(responseCode)
