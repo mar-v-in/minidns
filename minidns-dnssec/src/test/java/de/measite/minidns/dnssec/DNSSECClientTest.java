@@ -279,7 +279,9 @@ public class DNSSECClientTest {
 
     @Test
     public void unknownAlgorithmTest() {
-        RRSIG unknownRrsig = rrsig(Record.TYPE.A, 213, 2, 3600, new Date(), new Date(), comZSK.getKeyTag(), "com", new byte[0]);
+        Date signatureExpiration = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
+        Date signatureInception = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
+        RRSIG unknownRrsig = rrsig(Record.TYPE.A, 213, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -346,6 +348,66 @@ public class DNSSECClientTest {
                                 record("com", comKSK),
                                 record("com", comZSK)),
                         sign(comZSK, "com", comPrivateZSK, algorithm,
+                                record("example.com", a("1.1.1.2")))
+                )
+        );
+        DNSMessage message = client.query("example.com", Record.TYPE.A);
+        assertNotNull(message);
+        assertFalse(message.isAuthenticData());
+        checkCorrectExampleMessage(message);
+    }
+
+    @Test
+    public void signatureOutOfDateTest() {
+        Date signatureExpiration = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
+        Date signatureInception = new Date(System.currentTimeMillis() - 28L * 24L * 60L * 60L * 1000L);
+        RRSIG outOfDateSig = rrsig(Record.TYPE.A, algorithm, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comKSK, "com", comPrivateKSK, algorithm,
+                                record("com", comKSK),
+                                record("com", comZSK)),
+                        sign(comPrivateZSK, outOfDateSig,
+                                record("example.com", a("1.1.1.2")))
+                )
+        );
+        DNSMessage message = client.query("example.com", Record.TYPE.A);
+        assertNotNull(message);
+        assertFalse(message.isAuthenticData());
+        checkCorrectExampleMessage(message);
+    }
+
+    @Test
+    public void signatureInFutureTest() {
+        Date signatureExpiration = new Date(System.currentTimeMillis() + 28L * 24L * 60L * 60L * 1000L);
+        Date signatureInception = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
+        RRSIG outOfDateSig = rrsig(Record.TYPE.A, algorithm, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
+        applyZones(client,
+                signedRootZone(
+                        sign(rootKSK, "", rootPrivateKSK, algorithm,
+                                record("", rootKSK),
+                                record("", rootZSK)),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ds("com", digestType, comKSK))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("com", ns("ns.com"))),
+                        sign(rootZSK, "", rootPrivateZSK, algorithm,
+                                record("ns.com", a("1.1.1.1")))
+                ), signedZone("com", "ns.com", "1.1.1.1",
+                        sign(comKSK, "com", comPrivateKSK, algorithm,
+                                record("com", comKSK),
+                                record("com", comZSK)),
+                        sign(comPrivateZSK, outOfDateSig,
                                 record("example.com", a("1.1.1.2")))
                 )
         );

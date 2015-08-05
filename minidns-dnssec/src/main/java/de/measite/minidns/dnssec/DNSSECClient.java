@@ -25,6 +25,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,11 +34,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DNSSECClient extends RecursiveDNSClient {
     private static final BigInteger rootEntryKey = new BigInteger("03010001a80020a95566ba42e886bb804cda84e47ef56dbd7aec612615552cec906d2116d0ef207028c51554144dfeafe7c7cb8f005dd18234133ac0710a81182ce1fd14ad2283bc83435f9df2f6313251931a176df0da51e54f42e604860dfb359580250f559cc543c4ffd51cbe3de8cfd06719237f9fc47ee729da06835fa452e825e9a18ebc2ecbcf563474652c33cf56a9033bcdf5d973121797ec8089041b6e03a1b72d0a735b984e03687309332324f27c2dba85e9db15e83a0143382e974b0621c18e625ecec907577d9e7bade95241a81ebbe8a901d4d3276e40b114c0a2e6fc38d19c2e6aab02644b2813f575fc21601e0dee49cd9ee96a43103e524d62873d", 16);
 
-    public DNSSECClient(DNSCache dnsCache) {
-        super(dnsCache);
+    /**
+     * Create a new DNSSEC aware DNS client with the given DNS cache.
+     *
+     * @param cache The backend DNS cache.
+     */
+    public DNSSECClient(DNSCache cache) {
+        super(cache);
         addSecureEntryPoint("", rootEntryKey.toByteArray());
     }
 
+    /**
+     * Creates a new DNSSEC aware client that uses the given Map as cache.
+     *
+     * @param cache the Map to use as cache for DNS results.
+     */
     public DNSSECClient(Map<Question, DNSMessage> cache) {
         super(cache);
         addSecureEntryPoint("", rootEntryKey.toByteArray());
@@ -180,8 +191,17 @@ public class DNSSECClient extends RecursiveDNSClient {
         Record sigRecord;
         VerifySignaturesResult result = new VerifySignaturesResult();
         while ((sigRecord = nextSignature(toBeVerified)) != null) {
-            result.signaturesPresent = true;
             RRSIG rrsig = (RRSIG) sigRecord.payloadData;
+
+            Date now = new Date(); 
+            if (rrsig.signatureExpiration.compareTo(now) < 0 || rrsig.signatureInception.compareTo(now) > 0) {
+                // This RRSIG is out of date, but there might be one that is not.
+                toBeVerified.remove(sigRecord);
+                continue;
+            }
+
+            result.signaturesPresent = true;
+
             List<Record> records = new ArrayList<>();
             for (Record record : reference) {
                 if (record.type == rrsig.typeCovered && record.name.equals(sigRecord.name)) {
