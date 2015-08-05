@@ -37,7 +37,7 @@ public class Verifier {
     }
 
     private Logger LOGGER = Logger.getLogger(Verifier.class.getName());
-    
+
     private AlgorithmMap algorithmMap = new AlgorithmMap();
 
     public VerificationState verify(Record dnskeyRecord, DS ds) {

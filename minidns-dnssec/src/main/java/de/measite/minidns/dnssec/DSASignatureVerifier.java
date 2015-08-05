@@ -16,7 +16,6 @@ import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.DSAPublicKeySpec;
-import java.security.spec.RSAPublicKeySpec;
 
 public class DSASignatureVerifier extends JavaSecSignatureVerifier {
     public DSASignatureVerifier(String algorithm) throws NoSuchAlgorithmException {
@@ -28,7 +27,7 @@ public class DSASignatureVerifier extends JavaSecSignatureVerifier {
             DataInputStream dis = new DataInputStream(new ByteArrayInputStream(key));
 
             int t = dis.readUnsignedByte();
-            
+
             byte[] subPrimeBytes = new byte[20];
             dis.read(subPrimeBytes);
             BigInteger subPrime = new BigInteger(1, subPrimeBytes);
