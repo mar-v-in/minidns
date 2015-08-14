@@ -15,6 +15,8 @@ import de.measite.minidns.record.NSEC3;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA1;
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA256;
@@ -27,6 +29,8 @@ import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA256;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA512;
 
 class AlgorithmMap {
+    private Logger LOGGER = Logger.getLogger(AlgorithmMap.class.getName());
+
     private Map<Byte, DigestCalculator> dsDigestMap;
     private Map<Byte, SignatureVerifier> signatureMap;
     private Map<Byte, DigestCalculator> nsecDigestMap;
@@ -61,6 +65,7 @@ class AlgorithmMap {
             signatureMap.put(SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1, sha1withDSA);
         } catch (NoSuchAlgorithmException e) {
             // DSA/SHA-1 is OPTIONAL
+            LOGGER.log(Level.INFO, "Platform does not support DSA/SHA-1", e);
         }
         try {
             RSASignatureVerifier sha1withRSA = new RSASignatureVerifier("SHA1withRSA");
@@ -73,11 +78,13 @@ class AlgorithmMap {
             signatureMap.put(SIGNATURE_ALGORITHM_RSASHA256, new RSASignatureVerifier("SHA256withRSA"));
         } catch (NoSuchAlgorithmException e) {
             // RSA/SHA-256 is RECOMMENDED
+            LOGGER.log(Level.INFO, "Platform does not support RSA/SHA-256", e);
         }
         try {
             signatureMap.put(SIGNATURE_ALGORITHM_RSASHA512, new RSASignatureVerifier("SHA512withRSA"));
         } catch (NoSuchAlgorithmException e) {
             // RSA/SHA-512 is RECOMMENDED
+            LOGGER.log(Level.INFO, "Platform does not support RSA/SHA-512", e);
         }
     }
 
