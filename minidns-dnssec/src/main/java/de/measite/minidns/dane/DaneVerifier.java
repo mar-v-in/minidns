@@ -155,7 +155,7 @@ public class DaneVerifier {
                 try {
                     comp = MessageDigest.getInstance("SHA-512").digest(comp);
                 } catch (NoSuchAlgorithmException e) {
-                    throw new CertificateException("Verification using TLSA failed: could not SHA-256 for matching", e);
+                    throw new CertificateException("Verification using TLSA failed: could not SHA-512 for matching", e);
                 }
                 break;
         }
