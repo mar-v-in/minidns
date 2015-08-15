@@ -28,7 +28,7 @@ import java.security.cert.X509Certificate;
 import java.util.logging.Logger;
 
 public class DaneExtendedTrustManager extends X509ExtendedTrustManager {
-    private Logger LOGGER = Logger.getLogger(DaneExtendedTrustManager.class.getName());
+    private final static Logger LOGGER = Logger.getLogger(DaneExtendedTrustManager.class.getName());
 
     private final X509TrustManager base;
     private final DaneVerifier verifier;

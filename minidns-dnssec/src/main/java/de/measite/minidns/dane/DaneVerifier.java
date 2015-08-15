@@ -36,7 +36,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class DaneVerifier {
-    private Logger LOGGER = Logger.getLogger(DaneVerifier.class.getName());
+    private final static Logger LOGGER = Logger.getLogger(DaneVerifier.class.getName());
 
     private final AbstractDNSClient client;
 
@@ -98,32 +98,33 @@ public class DaneVerifier {
     public boolean verifyCertificateChain(X509Certificate[] chain, String hostName, int port) throws CertificateException {
         String req = "_" + port + "._tcp." + hostName;
         DNSMessage res = client.query(req, Record.TYPE.TLSA);
-        if (res.isAuthenticData()) {
-            TLSA tlsa = null;
-            for (Record record : res.getAnswers()) {
-                if (record.type == Record.TYPE.TLSA && record.name.equals(req)) {
-                    tlsa = (TLSA) record.payloadData;
-                }
-            }
-            if (tlsa != null) {
-                switch (tlsa.certUsage) {
-                    case TLSA.CERT_USAGE_SERVICE_CERTIFICATE_CONSTRAINT:
-                    case TLSA.CERT_USAGE_DOMAIN_ISSUED_CERTIFICATE:
-                        if (!checkCertificateMatches(chain[0], tlsa)) {
-                            throw new CertificateException("Verification using TLSA failed: certificate differs");
-                        }
-                        // domain issued certificate does not require further verification, 
-                        // service certificate constraint does.
-                        return tlsa.certUsage == TLSA.CERT_USAGE_DOMAIN_ISSUED_CERTIFICATE;
-                    case TLSA.CERT_USAGE_CA_CONSTRAINT:
-                    case TLSA.CRET_USAGE_TRUST_ANCHOR_ASSERTION:
-                    default:
-                        LOGGER.info("TLSA certificate usage " + tlsa.certUsage + " not supported for " + hostName);
-                        return false;
-                }
-            }
-        } else {
+        if (!res.isAuthenticData()) {
             LOGGER.info("Got TLSA response from DNS server, but was not signed properly...");
+            return false;
+        }
+        TLSA tlsa = null;
+        for (Record record : res.getAnswers()) {
+            if (record.type == Record.TYPE.TLSA && record.name.equals(req)) {
+                tlsa = (TLSA) record.payloadData;
+                break;
+            }
+        }
+        if (tlsa != null) {
+            switch (tlsa.certUsage) {
+                case TLSA.CERT_USAGE_SERVICE_CERTIFICATE_CONSTRAINT:
+                case TLSA.CERT_USAGE_DOMAIN_ISSUED_CERTIFICATE:
+                    if (!checkCertificateMatches(chain[0], tlsa)) {
+                        throw new CertificateException("Verification using TLSA failed: certificate differs");
+                    }
+                    // domain issued certificate does not require further verification, 
+                    // service certificate constraint does.
+                    return tlsa.certUsage == TLSA.CERT_USAGE_DOMAIN_ISSUED_CERTIFICATE;
+                case TLSA.CERT_USAGE_CA_CONSTRAINT:
+                case TLSA.CRET_USAGE_TRUST_ANCHOR_ASSERTION:
+                default:
+                    LOGGER.info("TLSA certificate usage " + tlsa.certUsage + " not supported for " + hostName);
+                    return false;
+            }
         }
         return false;
     }
