@@ -13,6 +13,7 @@ package de.measite.minidns;
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.AAAA;
 import de.measite.minidns.record.CNAME;
+import de.measite.minidns.record.DLV;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
 import de.measite.minidns.record.Data;
@@ -347,6 +348,9 @@ public class Record {
                 break;
             case OPENPGPKEY:
                 this.payloadData = new OPENPGPKEY(dis, data, payloadLength);
+                break;
+            case DLV:
+                this.payloadData = new DLV(dis, data, payloadLength);
                 break;
             case UNKNOWN:
             default:

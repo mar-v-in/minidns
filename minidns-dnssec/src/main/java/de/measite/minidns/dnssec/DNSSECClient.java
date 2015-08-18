@@ -15,6 +15,7 @@ import de.measite.minidns.DNSMessage;
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
 import de.measite.minidns.Record.TYPE;
+import de.measite.minidns.record.DLV;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
 import de.measite.minidns.record.OPT;
@@ -33,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DNSSECClient extends RecursiveDNSClient {
     private static final BigInteger rootEntryKey = new BigInteger("03010001a80020a95566ba42e886bb804cda84e47ef56dbd7aec612615552cec906d2116d0ef207028c51554144dfeafe7c7cb8f005dd18234133ac0710a81182ce1fd14ad2283bc83435f9df2f6313251931a176df0da51e54f42e604860dfb359580250f559cc543c4ffd51cbe3de8cfd06719237f9fc47ee729da06835fa452e825e9a18ebc2ecbcf563474652c33cf56a9033bcdf5d973121797ec8089041b6e03a1b72d0a735b984e03687309332324f27c2dba85e9db15e83a0143382e974b0621c18e625ecec907577d9e7bade95241a81ebbe8a901d4d3276e40b114c0a2e6fc38d19c2e6aab02644b2813f575fc21601e0dee49cd9ee96a43103e524d62873d", 16);
+    private static final String DEFAULT_DLV = "dlv.isc.org";
 
     /**
      * Create a new DNSSEC aware DNS client with the given DNS cache.
@@ -57,6 +59,7 @@ public class DNSSECClient extends RecursiveDNSClient {
     private Verifier verifier = new Verifier();
     private Map<String, byte[]> knownSeps = new ConcurrentHashMap<>();
     private boolean stripSignatureRecords = true;
+    private String dlv;
 
     @Override
     public DNSMessage query(Question q, InetAddress address, int port) {
@@ -104,12 +107,12 @@ public class DNSSECClient extends RecursiveDNSClient {
         VerifySignaturesResult verifiedSignatures = verifySignatures(q, answers, toBeVerified);
         dnsMessage.setAuthenticData(verifiedSignatures.authenticData);
         if (!verifiedSignatures.signaturesPresent) return;
+        boolean sepSignatureValid = false;
         for (Iterator<Record> iterator = toBeVerified.iterator(); iterator.hasNext(); ) {
             Record record = iterator.next();
             if (record.type == TYPE.DNSKEY && (((DNSKEY) record.payloadData).flags & DNSKEY.FLAG_SECURE_ENTRY_POINT) > 0) {
-                if (!verifySecureEntryPoint(q, record)) {
-                    dnsMessage.setAuthenticData(false);
-                    LOGGER.fine("Verification of answer to " + q + " failed: SEP key is not properly verified.");
+                if (verifySecureEntryPoint(q, record)) {
+                    sepSignatureValid = true;
                 }
                 if (!verifiedSignatures.sepSignaturePresent) {
                     // TODO: Not sure if this is a problem or should be noted at all? It's at least abnormal...
@@ -117,6 +120,10 @@ public class DNSSECClient extends RecursiveDNSClient {
                 }
                 iterator.remove();
             }
+        }
+        if (verifiedSignatures.sepSignaturePresent && !sepSignatureValid) {
+            dnsMessage.setAuthenticData(false);
+            LOGGER.fine("Verification of answer to " + q + " failed: SEP key is not properly verified.");
         }
         if (verifiedSignatures.sepSignatureRequired && !verifiedSignatures.sepSignaturePresent) {
             dnsMessage.setAuthenticData(false);
@@ -303,26 +310,39 @@ public class DNSSECClient extends RecursiveDNSClient {
             }
         }
         boolean verifiedResult = true;
-        DNSMessage verify = query(sepRecord.name, TYPE.DS);
-        if (verify == null) {
+        DS delegation = null;
+        DNSMessage dsResp = query(sepRecord.name, TYPE.DS);
+        if (dsResp == null) {
             LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives no result");
-            return false;
-        }
-        if (!verify.isAuthenticData()) {
-            LOGGER.fine("DS is not authentic, no chance the corresponding DNSKEY is.");
-            verifiedResult = false;
-        }
-        DS ds = null;
-        for (Record record : verify.getAnswers()) {
-            if (record.type == TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
-                ds = (DS) record.payloadData;
+        } else {
+            verifiedResult = dsResp.isAuthenticData();
+            for (Record record : dsResp.getAnswers()) {
+                if (record.type == TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
+                    delegation = (DS) record.payloadData;
+                    break;
+                }
+            }
+            if (delegation == null) {
+                LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives empty result");
             }
         }
-        if (ds == null) {
-            LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives empty result");
+        if (delegation == null && dlv != null) {
+            DNSMessage dlvResp = query(sepRecord.name + "." + dlv, TYPE.DLV);
+            if (dlvResp != null) {
+                verifiedResult = dlvResp.isAuthenticData();
+                for (Record record : dlvResp.getAnswers()) {
+                    if (record.type == TYPE.DLV && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DLV) record.payloadData).keyTag) {
+                        LOGGER.fine("Found DLV for " + sepRecord.name + ", awesome.");
+                        delegation = (DLV) record.payloadData;
+                        break;
+                    }
+                }
+            }
+        }
+        if (delegation == null) {
             return false;
         }
-        Verifier.VerificationState verificationState = verifier.verify(sepRecord, ds);
+        Verifier.VerificationState verificationState = verifier.verify(sepRecord, delegation);
         switch (verificationState) {
             case FAILED:
                 throw new DNSSECValidationFailedException(q, "SEP is not properly signed by parent DS!");
@@ -404,5 +424,29 @@ public class DNSSECClient extends RecursiveDNSClient {
      */
     public void setStripSignatureRecords(boolean stripSignatureRecords) {
         this.stripSignatureRecords = stripSignatureRecords;
+    }
+
+    /**
+     * Enables DNSSEC Lookaside Validation (DLV) using the default DLV service at dlv.isc.org.
+     */
+    public void enableLookasideValidation() {
+        configureLookasideValidation(DEFAULT_DLV);
+    }
+
+    /**
+     * Disables DNSSEC Lookaside Validation (DLV).
+     * DLV is disabled by default, this is only required if {@link #enableLookasideValidation()} was used before.
+     */
+    public void disableLookasideValidation() {
+        configureLookasideValidation(null);
+    }
+
+    /**
+     * Enables DNSSEC Lookaside Validation (DLV) using the given DLV service.
+     *
+     * @param dlv The domain name of the DLV service to be used or {@code null} to disable DLV.
+     */
+    public void configureLookasideValidation(String dlv) {
+        this.dlv = dlv;
     }
 }
