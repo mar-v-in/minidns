@@ -58,19 +58,43 @@ public class DNSSECClient extends RecursiveDNSClient {
 
     private Verifier verifier = new Verifier();
     private Map<String, byte[]> knownSeps = new ConcurrentHashMap<>();
+    private Map<String, DS> knownDelegations = new ConcurrentHashMap<>();
     private boolean stripSignatureRecords = true;
     private String dlv;
 
     @Override
     public DNSMessage query(Question q, InetAddress address, int port) {
         DNSMessage dnsMessage = super.query(q, address, port);
-        if (dnsMessage != null && dnsMessage.isAuthoritativeAnswer() && !dnsMessage.isAuthenticData()) {
-            verify(dnsMessage);
-        }
-        if (dnsMessage != null && dnsMessage.isAuthoritativeAnswer() && stripSignatureRecords) {
-            dnsMessage = dnsMessage.withNewRecords(stripSignatureRecords(dnsMessage.getAnswers()),
-                    stripSignatureRecords(dnsMessage.getNameserverRecords()),
-                    stripSignatureRecords(dnsMessage.getAdditionalResourceRecords()));
+        if (dnsMessage != null) {
+            if (dnsMessage.isAuthoritativeAnswer()) {
+                if (!dnsMessage.isAuthenticData()) {
+                    verify(dnsMessage);
+                }
+                if (stripSignatureRecords) {
+                    dnsMessage = dnsMessage.withNewRecords(stripSignatureRecords(dnsMessage.getAnswers()),
+                            stripSignatureRecords(dnsMessage.getNameserverRecords()),
+                            stripSignatureRecords(dnsMessage.getAdditionalResourceRecords()));
+                }
+            } else {
+                List<Record> dss = new ArrayList<>();
+                RRSIG dsSig = null;
+                for (Record record : dnsMessage.getNameserverRecords()) {
+                    if (record.type == TYPE.DS) dss.add(record);
+                    if (record.type == TYPE.RRSIG && ((RRSIG) record.payloadData).typeCovered == TYPE.DS)
+                        dsSig = (RRSIG) record.payloadData;
+                }
+                if (dsSig != null) {
+                    try {
+                        if (verifySignedRecords(q, dsSig, dss)) {
+                            for (Record dsRecord : dss) {
+                                knownDelegations.put(dsRecord.name, (DS) dsRecord.payloadData);
+                            }
+                        }
+                    } catch (DNSSECValidationFailedException ignored) {
+                        // Not actually a problem, just an incomplete hint.
+                    }
+                }
+            }
         }
         return dnsMessage;
     }
@@ -311,19 +335,30 @@ public class DNSSECClient extends RecursiveDNSClient {
         }
         boolean verifiedResult = true;
         DS delegation = null;
-        DNSMessage dsResp = query(sepRecord.name, TYPE.DS);
-        if (dsResp == null) {
-            LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives no result");
-        } else {
-            verifiedResult = dsResp.isAuthenticData();
-            for (Record record : dsResp.getAnswers()) {
-                if (record.type == TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
-                    delegation = (DS) record.payloadData;
-                    break;
-                }
+        if (knownDelegations.containsKey(sepRecord.name)) {
+            DS ds = knownDelegations.get(sepRecord.name);
+            if (((DNSKEY) sepRecord.payloadData).getKeyTag() == ds.keyTag) {
+                delegation = ds;
+            } else {
+                LOGGER.fine("There is a differing DS record for " + sepRecord.name);
+                return false;
             }
-            if (delegation == null) {
-                LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives empty result");
+        }
+        if (delegation == null) {
+            DNSMessage dsResp = query(sepRecord.name, TYPE.DS);
+            if (dsResp == null) {
+                LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives no result");
+            } else {
+                verifiedResult = dsResp.isAuthenticData();
+                for (Record record : dsResp.getAnswers()) {
+                    if (record.type == TYPE.DS && ((DNSKEY) sepRecord.payloadData).getKeyTag() == ((DS) record.payloadData).keyTag) {
+                        delegation = (DS) record.payloadData;
+                        break;
+                    }
+                }
+                if (delegation == null) {
+                    LOGGER.fine("There is no DS record for " + sepRecord.name + ", server gives empty result");
+                }
             }
         }
         if (delegation == null && dlv != null) {
