@@ -18,11 +18,15 @@ import de.measite.minidns.dnssec.DNSSECClient;
 import de.measite.minidns.record.TLSA;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.KeyManagementException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
@@ -35,6 +39,9 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * A helper class to validate the usage of TLSA records.
+ */
 public class DaneVerifier {
     private final static Logger LOGGER = Logger.getLogger(DaneVerifier.class.getName());
 
@@ -48,26 +55,12 @@ public class DaneVerifier {
         this.client = client;
     }
 
-    public boolean verify(HttpsURLConnection conn) throws CertificateException {
-        try {
-            conn.connect();
-            return verifyCertificateChain(convert(conn.getServerCertificates()), conn.getURL().getHost(),
-                    conn.getURL().getPort() < 0 ? conn.getURL().getDefaultPort() : conn.getURL().getPort());
-        } catch (IOException e) {
-            throw new CertificateException("Peer not verified", e);
-        }
-    }
-
-    private X509Certificate[] convert(Certificate[] certificates) {
-        List<X509Certificate> certs = new ArrayList<>();
-        for (Certificate certificate : certificates) {
-            if (certificate instanceof X509Certificate) {
-                certs.add((X509Certificate) certificate);
-            }
-        }
-        return certs.toArray(new X509Certificate[certs.size()]);
-    }
-
+    /**
+     * Verifies the certificate chain in an active {@link SSLSocket}. The socket must be connected.
+     *
+     * @return Whether the DANE verification is the only requirement according to the TLSA record.
+     * If this method returns {@code false}, additional PKIX validation is required.
+     */
     public boolean verify(SSLSocket socket) throws CertificateException {
         if (!socket.isConnected()) {
             throw new IllegalStateException("Socket not yet connected.");
@@ -75,6 +68,12 @@ public class DaneVerifier {
         return verify(socket.getSession());
     }
 
+    /**
+     * Verifies the certificate chain in an active {@link SSLSession}.
+     *
+     * @return Whether the DANE verification is the only requirement according to the TLSA record.
+     * If this method returns {@code false}, additional PKIX validation is required.
+     */
     public boolean verify(SSLSession session) throws CertificateException {
         try {
             return verifyCertificateChain(convert(session.getPeerCertificateChain()), session.getPeerHost(), session.getPeerPort());
@@ -83,18 +82,12 @@ public class DaneVerifier {
         }
     }
 
-    private X509Certificate[] convert(javax.security.cert.X509Certificate[] certificates) {
-        X509Certificate[] certs = new X509Certificate[certificates.length];
-        for (int i = 0; i < certificates.length; i++) {
-            try {
-                certs[i] = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certificates[i].getEncoded()));
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Could not convert", e);
-            }
-        }
-        return certs;
-    }
-
+    /**
+     * Verifies a certificate chain to be valid when used with the given connection details using DANE.
+     *
+     * @return Whether the DANE verification is the only requirement according to the TLSA record.
+     * If this method returns {@code false}, additional PKIX validation is required.
+     */
     public boolean verifyCertificateChain(X509Certificate[] chain, String hostName, int port) throws CertificateException {
         String req = "_" + port + "._tcp." + hostName;
         DNSMessage res = client.query(req, Record.TYPE.TLSA);
@@ -161,5 +154,69 @@ public class DaneVerifier {
                 break;
         }
         return Arrays.equals(comp, tlsa.certificateAssociation);
+    }
+
+    /**
+     * Invokes {@link HttpsURLConnection#connect()} in a DANE verified fashion.
+     * This method must be called before {@link HttpsURLConnection#connect()} is invoked.
+     *
+     * If a SSLSocketFactory was set on this HttpsURLConnection, it will be ignored. You can use
+     * {@link #verifiedConnect(HttpsURLConnection, X509TrustManager)} to inject a custom {@link TrustManager}.
+     *
+     * @param conn connection to be connected.
+     */
+    public HttpsURLConnection verifiedConnect(HttpsURLConnection conn) throws IOException {
+        return verifiedConnect(conn, null);
+    }
+
+    /**
+     * Invokes {@link HttpsURLConnection#connect()} in a DANE verified fashion.
+     * This method must be called before {@link HttpsURLConnection#connect()} is invoked.
+     *
+     * If a SSLSocketFactory was set on this HttpsURLConnection, it will be ignored.
+     *
+     * @param conn         connection to be connected.
+     * @param trustManager A non-default {@link TrustManager} to be used.
+     */
+    public HttpsURLConnection verifiedConnect(HttpsURLConnection conn, X509TrustManager trustManager) throws IOException {
+        try {
+            SSLContext context = SSLContext.getInstance("TLS");
+            ExpectingTrustManager expectingTrustManager = new ExpectingTrustManager(trustManager);
+            context.init(null, new TrustManager[]{expectingTrustManager}, null);
+            conn.setSSLSocketFactory(context.getSocketFactory());
+            conn.connect();
+            boolean fullyVerified = verifyCertificateChain(convert(conn.getServerCertificates()), conn.getURL().getHost(),
+                    conn.getURL().getPort() < 0 ? conn.getURL().getDefaultPort() : conn.getURL().getPort());
+            if (!fullyVerified && expectingTrustManager.hasException()) {
+                throw new IOException("Peer verification failed using PKIX", expectingTrustManager.getException());
+            }
+            return conn;
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new RuntimeException(e);
+        } catch (CertificateException e) {
+            throw new IOException("Peer verification failed using DANE", e);
+        }
+    }
+
+    private X509Certificate[] convert(Certificate[] certificates) {
+        List<X509Certificate> certs = new ArrayList<>();
+        for (Certificate certificate : certificates) {
+            if (certificate instanceof X509Certificate) {
+                certs.add((X509Certificate) certificate);
+            }
+        }
+        return certs.toArray(new X509Certificate[certs.size()]);
+    }
+
+    private X509Certificate[] convert(javax.security.cert.X509Certificate[] certificates) {
+        X509Certificate[] certs = new X509Certificate[certificates.length];
+        for (int i = 0; i < certificates.length; i++) {
+            try {
+                certs[i] = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certificates[i].getEncoded()));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Could not convert", e);
+            }
+        }
+        return certs;
     }
 }
