@@ -19,11 +19,81 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NetworkDataSource extends DNSDataSource {
+    public static final int CONNECTION_LIFETIME = 2000;
+    private Map<InetAddress, Socket> openedConnections = new ConcurrentHashMap<>();
+    private Map<InetAddress, Long> connectionUsage = new ConcurrentHashMap<>();
+    private int maxOpenedConnections = 10;
+    private Runnable closer = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (this) {
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        wait(1000);
+                        int destroy = openedConnections.size() - maxOpenedConnections;
+                        for (Iterator<Map.Entry<InetAddress, Long>> iterator = connectionUsage.entrySet().iterator(); iterator.hasNext(); ) {
+                            Map.Entry<InetAddress, Long> entry = iterator.next();
+                            if (entry.getValue() < System.currentTimeMillis() - CONNECTION_LIFETIME) {
+                                try {
+                                    openedConnections.get(entry.getKey()).close();
+                                    destroy--;
+                                } catch (IOException ignored) {
+                                }
+                                openedConnections.remove(entry.getKey());
+                                iterator.remove();
+                            }
+                        }
+                        while (destroy > 0) {
+                            InetAddress oldest = null;
+                            long oldestUsage = Long.MAX_VALUE;
+                            for (Map.Entry<InetAddress, Long> entry : connectionUsage.entrySet()) {
+                                if (entry.getValue() < oldestUsage) oldest = entry.getKey();
+                            }
+                            try {
+                                openedConnections.get(oldest).close();
+                                destroy--;
+                            } catch (IOException ignored) {
+                            }
+                            openedConnections.remove(oldest);
+                            connectionUsage.remove(oldest);
+                        }
+                        if (openedConnections.isEmpty()) {
+                            closerThread = null;
+                            return;
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    // Shutdown
+                }
+            }
+        }
+    };
+    private Thread closerThread;
 
     public DNSMessage query(DNSMessage message, InetAddress address, int port) {
         DNSMessage dnsMessage = null;
+        if (openedConnections.containsKey(address)) {
+            System.out.println("Reusing connection to " + address);
+            Socket socket = openedConnections.get(address);
+            connectionUsage.put(address, System.currentTimeMillis());
+            try {
+                return querySocket(message, socket);
+            } catch (IOException ignored) {
+            }
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
+            System.out.println("Reusing connection to " + address+" failed!");
+            openedConnections.remove(address);
+            connectionUsage.remove(address);
+        }
+
         try {
             dnsMessage = queryUdp(message, address, port);
         } catch (IOException ignored) {
@@ -65,33 +135,61 @@ public class NetworkDataSource extends DNSDataSource {
     }
 
     protected DNSMessage queryTcp(DNSMessage message, InetAddress address, int port) throws IOException {
-        byte[] buf = message.toArray();
         // TODO Use a try-with-resource statement here once miniDNS minimum
         // required Android API level is >= 19
         Socket socket = null;
         try {
             socket = new Socket(address, port);
             socket.setSoTimeout(timeout);
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-            dos.writeShort(buf.length);
-            dos.write(buf);
-            dos.flush();
-            DataInputStream dis = new DataInputStream(socket.getInputStream());
-            int length = dis.readUnsignedShort();
-            byte[] data = new byte[length];
-            int read = 0;
-            while (read < length) {
-                read += dis.read(data, read, length-read);
+            connectionUsage.put(address, System.currentTimeMillis());
+            openedConnections.put(address, socket);
+            if (closerThread == null) {
+                closerThread = new Thread(closer);
+                closerThread.start();
             }
-            DNSMessage dnsMessage = new DNSMessage(data);
-            if (dnsMessage.getId() != message.getId()) {
-                return null;
-            }
-            return dnsMessage;
-        } finally {
+            return querySocket(message, socket);
+        } catch (IOException e) {
             if (socket != null) {
                 socket.close();
+                openedConnections.remove(address);
+                connectionUsage.remove(address);
             }
+            throw e;
+        }
+    }
+
+    private DNSMessage querySocket(DNSMessage message, Socket socket) throws IOException {
+        byte[] buf = message.toArray();
+        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+        dos.writeShort(buf.length);
+        dos.write(buf);
+        dos.flush();
+        DataInputStream dis = new DataInputStream(socket.getInputStream());
+        int length = dis.readUnsignedShort();
+        byte[] data = new byte[length];
+        int read = 0;
+        while (read < length) {
+            read += dis.read(data, read, length - read);
+        }
+        DNSMessage dnsMessage = new DNSMessage(data);
+        if (dnsMessage.getId() != message.getId()) {
+            return null;
+        }
+        return dnsMessage;
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        if (closerThread != null) closerThread.interrupt();
+        for (Iterator<Map.Entry<InetAddress, Socket>> iterator = openedConnections.entrySet().iterator(); iterator.hasNext(); ) {
+            Map.Entry<InetAddress, Socket> entry = iterator.next();
+            try {
+                entry.getValue().close();
+            } catch (IOException ignored) {
+            }
+            iterator.remove();
+            connectionUsage.remove(entry.getKey());
         }
     }
 }
