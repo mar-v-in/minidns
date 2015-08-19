@@ -72,6 +72,19 @@ public class RecordsTest {
     }
 
     @Test
+    public void testDlvRecord() throws Exception {
+        DLV dlv = new DLV(42, (byte) 8, (byte) 2, new byte[]{0x13, 0x37});
+        assertEquals("42 8 2 1337", dlv.toString());
+        assertEquals(TYPE.DLV, dlv.getType());
+        byte[] dlvb = dlv.toByteArray();
+        dlv = new DLV(new DataInputStream(new ByteArrayInputStream(dlvb)), dlvb, dlvb.length);
+        assertEquals(42, dlv.keyTag);
+        assertEquals(8, dlv.algorithm);
+        assertEquals(2, dlv.digestType);
+        assertArrayEquals(new byte[]{0x13, 0x37}, dlv.digest);
+    }
+
+    @Test
     public void testDnskeyRecord() throws Exception {
         DNSKEY dnskey = new DNSKEY(DNSKEY.FLAG_ZONE, (byte) 3, (byte) 1, new byte[]{42});
         // TODO: Compare with real Base64 once done

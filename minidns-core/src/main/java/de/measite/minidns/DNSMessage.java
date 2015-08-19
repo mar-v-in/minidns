@@ -432,6 +432,7 @@ public class DNSMessage {
     }
 
     public DNSMessage() {
+        query = true;
     }
 
     /**
@@ -479,7 +480,7 @@ public class DNSMessage {
 
     int calculateHeaderBitmap() {
         int header = 0;
-        if (query) {
+        if (!query) {
             header += 1 << 15;
         }
         if (opcode != null) {

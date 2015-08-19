@@ -42,6 +42,7 @@ import java.util.TimeZone;
 import java.util.TreeMap;
 
 import static de.measite.minidns.DNSWorld.a;
+import static de.measite.minidns.DNSWorld.aaaa;
 import static de.measite.minidns.DNSWorld.ns;
 import static de.measite.minidns.DNSWorld.record;
 import static org.junit.Assert.assertEquals;
@@ -360,6 +361,7 @@ public class DNSMessageTest {
         message.setQuestions(new Question("www.example.com", TYPE.A));
         message.setRecursionDesired(true);
         message.setId(42);
+        message.setQuery(true);
         message = new DNSMessage(message.toArray());
 
         assertEquals(1, message.getQuestions().length);
@@ -367,6 +369,7 @@ public class DNSMessageTest {
         assertEquals(0, message.getAdditionalResourceRecords().length);
         assertEquals(0, message.getNameserverRecords().length);
         assertTrue(message.isRecursionDesired());
+        assertTrue(message.isQuery());
         assertEquals(42, message.getId());
         assertEquals("www.example.com", message.questions[0].name);
         assertEquals(TYPE.A, message.questions[0].type);
@@ -378,7 +381,9 @@ public class DNSMessageTest {
         message.answers = new Record[]{
                 record("www.example.com", a("127.0.0.1")), 
                 record("www.example.com", ns("example.com"))};
-        message.setRecursionAvailable(false);
+        message.setRecursionAvailable(true);
+        message.setCheckDisabled(true);
+        message.setQuery(false);
         message.setId(43);
         message = new DNSMessage(message.toArray());
 
@@ -386,7 +391,10 @@ public class DNSMessageTest {
         assertEquals(2, message.getAnswers().length);
         assertEquals(0, message.getAdditionalResourceRecords().length);
         assertEquals(0, message.getNameserverRecords().length);
-        assertFalse(message.isRecursionAvailable());
+        assertTrue(message.isRecursionAvailable());
+        assertFalse(message.isAuthenticData());
+        assertTrue(message.isCheckDisabled());
+        assertFalse(message.isQuery());
         assertEquals(43, message.getId());
         assertEquals("www.example.com", message.answers[0].name);
         assertEquals(TYPE.A, message.answers[0].type);
@@ -394,5 +402,77 @@ public class DNSMessageTest {
         assertEquals("www.example.com", message.answers[1].name);
         assertEquals(TYPE.NS, message.answers[1].type);
         assertEquals("example.com.", message.answers[1].payloadData.toString());
+    }
+
+    @Test
+    public void testMessageSelfComplexReconstruction() throws Exception {
+        DNSMessage message = new DNSMessage();
+        message.questions = new Question[]{new Question("www.example.com", TYPE.NS)};
+        message.answers = new Record[]{record("www.example.com", ns("ns.example.com"))};
+        message.additionalResourceRecords = new Record[]{record("ns.example.com", a("127.0.0.1"))};
+        message.nameserverRecords = new Record[]{record("ns.example.com", aaaa("2001::1"))};
+        message.opcode = DNSMessage.OPCODE.QUERY;
+        message.responseCode = DNSMessage.RESPONSE_CODE.NO_ERROR;
+        message.setRecursionAvailable(false);
+        message.setAuthoritativeAnswer(true);
+        message.setAuthenticData(true);
+        message.setQuery(false);
+        message.setId(43);
+        message = new DNSMessage(message.toArray());
+
+        assertEquals(1, message.getQuestions().length);
+        assertEquals(1, message.getAnswers().length);
+        assertEquals(1, message.getAdditionalResourceRecords().length);
+        assertEquals(1, message.getNameserverRecords().length);
+
+        assertFalse(message.isRecursionAvailable());
+        assertTrue(message.isAuthenticData());
+        assertFalse(message.isCheckDisabled());
+        assertFalse(message.isQuery());
+        assertTrue(message.isAuthoritativeAnswer());
+        assertEquals(43, message.getId());
+        assertEquals(DNSMessage.OPCODE.QUERY, message.getOpcode());
+        assertEquals(DNSMessage.RESPONSE_CODE.NO_ERROR, message.getResponseCode());
+
+        assertEquals("www.example.com", message.questions[0].name);
+        assertEquals(TYPE.NS, message.questions[0].type);
+
+        assertEquals("www.example.com", message.answers[0].name);
+        assertEquals(TYPE.NS, message.answers[0].type);
+        assertEquals("ns.example.com.", message.answers[0].payloadData.toString());
+
+        assertEquals("ns.example.com", message.additionalResourceRecords[0].name);
+        assertEquals(TYPE.A, message.additionalResourceRecords[0].type);
+        assertEquals("127.0.0.1", message.additionalResourceRecords[0].payloadData.toString());
+
+        assertEquals("ns.example.com", message.nameserverRecords[0].name);
+        assertEquals(TYPE.AAAA, message.nameserverRecords[0].type);
+        assertEquals("2001:0:0:0:0:0:0:1", message.nameserverRecords[0].payloadData.toString());
+    }
+
+    @Test
+    public void testMessageSelfTruncatedReconstruction() throws Exception {
+        DNSMessage message = new DNSMessage();
+        message.setTruncated(true);
+        message.setQuery(false);
+        message.setId(44);
+        message = new DNSMessage(message.toArray());
+        assertEquals(44, message.getId());
+        assertFalse(message.isQuery());
+        assertTrue(message.isTruncated());
+    }
+
+    @Test
+    public void testMessageSelfOptRecordReconstructione() throws Exception {
+        DNSMessage message = new DNSMessage();
+        message.additionalResourceRecords = new Record[]{record("www.example.com", a("127.0.0.1"))};
+        message.setOptPseudoRecord(512, OPT.FLAG_DNSSEC_OK);
+        message = new DNSMessage(message.toArray());
+
+        assertEquals(2, message.additionalResourceRecords.length);
+        assertEquals("www.example.com", message.additionalResourceRecords[0].name);
+        assertEquals(TYPE.A, message.additionalResourceRecords[0].type);
+        assertEquals("127.0.0.1", message.additionalResourceRecords[0].payloadData.toString());
+        assertEquals("EDNS: version: 0, flags: do; udp: 512", OPT.optRecordToString(message.additionalResourceRecords[1]));
     }
 }
