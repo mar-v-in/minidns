@@ -475,4 +475,55 @@ public class DNSMessageTest {
         assertEquals("127.0.0.1", message.additionalResourceRecords[0].payloadData.toString());
         assertEquals("EDNS: version: 0, flags: do; udp: 512", OPT.optRecordToString(message.additionalResourceRecords[1]));
     }
+
+    @Test
+    public void testEmptyMessageToString() throws Exception {
+        // toString() should never throw an exception or be null
+        DNSMessage message = new DNSMessage();
+        assertNotNull(message.toString());
+    }
+
+    @Test
+    public void testFilledMessageToString() throws Exception {
+        // toString() should never throw an exception or be null
+        DNSMessage message = new DNSMessage();
+        message.opcode = DNSMessage.OPCODE.QUERY;
+        message.responseCode = DNSMessage.RESPONSE_CODE.NO_ERROR;
+        message.setId(1337);
+        message.setAuthoritativeAnswer(true);
+        message.questions = new Question[]{new Question("www.example.com", TYPE.A)};
+        message.answers = new Record[]{record("www.example.com", a("127.0.0.1"))};
+        message.nameserverRecords = new Record[]{record("example.com", ns("ns.example.com"))};
+        message.additionalResourceRecords = new Record[]{record("ns.example.com", a("127.0.0.1"))};
+        message.setOptPseudoRecord(512, 0);
+        assertNotNull(message.toString());
+    }
+
+    @Test
+    public void testEmptyMessageTerminalOutput() throws Exception {
+        // asTerminalOutput() follows a certain design, however it might change in the future.
+        // Once asTerminalOutput() is changed, it might be required to update this test routine.
+        DNSMessage message = new DNSMessage();
+        message.opcode = DNSMessage.OPCODE.QUERY;
+        message.responseCode = DNSMessage.RESPONSE_CODE.NO_ERROR;
+        message.setId(1337);
+        assertNotNull(message.asTerminalOutput());
+    }
+
+    @Test
+    public void testFilledMessageTerminalOutput() throws Exception {
+        // asTerminalOutput() follows a certain design, however it might change in the future.
+        // Once asTerminalOutput() is changed, it might be required to update this test routine.
+        DNSMessage message = new DNSMessage();
+        message.opcode = DNSMessage.OPCODE.QUERY;
+        message.responseCode = DNSMessage.RESPONSE_CODE.NO_ERROR;
+        message.setId(1337);
+        message.setAuthoritativeAnswer(true);
+        message.questions = new Question[]{new Question("www.example.com", TYPE.A)};
+        message.answers = new Record[]{record("www.example.com", a("127.0.0.1"))};
+        message.nameserverRecords = new Record[]{record("example.com", ns("ns.example.com"))};
+        message.additionalResourceRecords = new Record[]{record("ns.example.com", a("127.0.0.1"))};
+        message.setOptPseudoRecord(512, 0);
+        assertNotNull(message.asTerminalOutput());
+    }
 }

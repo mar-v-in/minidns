@@ -616,9 +616,9 @@ public class DNSMessage {
         copy.responseCode = this.responseCode;
         copy.receiveTimestamp = this.receiveTimestamp;
         copy.questions = this.questions;
-        copy.answers = answers;
-        copy.nameserverRecords = nameserverRecords;
-        copy.additionalResourceRecords = additionalResourceRecords;
+        copy.answers = answers == null ? new Record[0] : answers;
+        copy.nameserverRecords = nameserverRecords == null ? new Record[0] : nameserverRecords;
+        copy.additionalResourceRecords = additionalResourceRecords == null ? new Record[0] : additionalResourceRecords;
         return copy;
     }
 

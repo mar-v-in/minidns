@@ -164,6 +164,14 @@ class Verifier {
         return bos.toByteArray();
     }
 
+    /**
+     * Tests if a nsec domain name is part of an NSEC record.
+     *
+     * @param test       test domain name
+     * @param lowerBound inclusive lower bound
+     * @param upperBound exclusive upper bound
+     * @return test domain name is covered by NSEC record
+     */
     static boolean nsecMatches(String test, String lowerBound, String upperBound) {
         int lowerParts = 0, upperParts = 0, testParts = 0;
         if (!lowerBound.isEmpty()) lowerParts = lowerBound.split("\\.").length;
@@ -176,7 +184,7 @@ class Verifier {
 
         if (testParts > upperParts && !test.endsWith(upperBound) && stripToParts(test, upperParts).compareTo(upperBound) > 0)
             return false;
-        if (testParts <= upperParts && test.compareTo(stripToParts(upperBound, testParts)) > 0) return false;
+        if (testParts <= upperParts && test.compareTo(stripToParts(upperBound, testParts)) >= 0) return false;
 
         return true;
     }

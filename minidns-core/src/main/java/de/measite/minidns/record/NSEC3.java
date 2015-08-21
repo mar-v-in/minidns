@@ -84,7 +84,7 @@ public class NSEC3 implements Data {
         types = NSEC.readTypeBitMap(typeBitmap);
     }
 
-    NSEC3(byte hashAlgorithm, byte flags, int iterations, byte[] salt, byte[] nextHashed, TYPE[] types) {
+    public NSEC3(byte hashAlgorithm, byte flags, int iterations, byte[] salt, byte[] nextHashed, TYPE[] types) {
         this.hashAlgorithm = hashAlgorithm;
         this.flags = flags;
         this.iterations = iterations;

@@ -17,12 +17,14 @@ import de.measite.minidns.Record.TYPE;
 import de.measite.minidns.record.A;
 import de.measite.minidns.record.AAAA;
 import de.measite.minidns.record.CNAME;
+import de.measite.minidns.record.DLV;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
 import de.measite.minidns.record.Data;
 import de.measite.minidns.record.MX;
 import de.measite.minidns.record.NS;
 import de.measite.minidns.record.NSEC;
+import de.measite.minidns.record.NSEC3;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.record.SOA;
 import de.measite.minidns.record.SRV;
@@ -66,7 +68,7 @@ public class DNSWorld extends DNSDataSource {
         answers.add(answer);
     }
 
-    private static DNSMessage createEmptyResponseMessage() {
+    public static DNSMessage createEmptyResponseMessage() {
         DNSMessage message = new DNSMessage();
         message.answers = new Record[0];
         message.nameserverRecords = new Record[0];
@@ -77,13 +79,13 @@ public class DNSWorld extends DNSDataSource {
         return message;
     }
 
-    interface PreparedResponse {
+    public interface PreparedResponse {
         boolean isResponse(DNSMessage request, InetAddress address);
 
         DNSMessage getResponse();
     }
 
-    static class AnswerResponse implements PreparedResponse {
+    public static class AnswerResponse implements PreparedResponse {
         final DNSMessage request;
         final DNSMessage response;
 
@@ -119,7 +121,7 @@ public class DNSWorld extends DNSDataSource {
         }
     }
 
-    static class RootAnswerResponse extends AnswerResponse {
+    public static class RootAnswerResponse extends AnswerResponse {
 
         public RootAnswerResponse(DNSMessage request, DNSMessage response) {
             super(request, response);
@@ -131,7 +133,7 @@ public class DNSWorld extends DNSDataSource {
         }
     }
 
-    static class AddressedAnswerResponse extends AnswerResponse {
+    public static class AddressedAnswerResponse extends AnswerResponse {
 
         final InetAddress address;
 
@@ -146,7 +148,7 @@ public class DNSWorld extends DNSDataSource {
         }
     }
 
-    abstract static class HintsResponse implements PreparedResponse {
+    public abstract static class HintsResponse implements PreparedResponse {
         final String ending;
         final DNSMessage response;
 
@@ -170,7 +172,7 @@ public class DNSWorld extends DNSDataSource {
         }
     }
 
-    static class RootHintsResponse extends HintsResponse {
+    public static class RootHintsResponse extends HintsResponse {
 
         public RootHintsResponse(String ending, DNSMessage response) {
             super(ending, response);
@@ -182,7 +184,7 @@ public class DNSWorld extends DNSDataSource {
         }
     }
 
-    static class AddressedHintsResponse extends HintsResponse {
+    public static class AddressedHintsResponse extends HintsResponse {
         final InetAddress address;
 
         public AddressedHintsResponse(InetAddress address, String ending, DNSMessage response) {
@@ -403,6 +405,10 @@ public class DNSWorld extends DNSDataSource {
         return new DS(keyTag, algorithm, digestType, digest);
     }
 
+    public static DLV dlv(int keyTag, byte algorithm, byte digestType, byte[] digest) {
+        return new DLV(keyTag, algorithm, digestType, digest);
+    }
+
     public static MX mx(int priority, String name) {
         return new MX(priority, name);
     }
@@ -415,8 +421,12 @@ public class DNSWorld extends DNSDataSource {
         return new NS(name);
     }
 
-    public static NSEC nsec(String next, TYPE[] types) {
+    public static NSEC nsec(String next, TYPE... types) {
         return new NSEC(next, types);
+    }
+
+    public static NSEC3 nsec3(byte hashAlgorithm, byte flags, int iterations, byte[] salt, byte[] nextHashed, TYPE... types) {
+        return new NSEC3(hashAlgorithm, flags, iterations, salt, nextHashed, types);
     }
 
     public static RRSIG rrsig(TYPE typeCovered, int algorithm, int labels, long originalTtl, Date signatureExpiration,

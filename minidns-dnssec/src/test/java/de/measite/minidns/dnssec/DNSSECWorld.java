@@ -10,10 +10,13 @@
  */
 package de.measite.minidns.dnssec;
 
+import de.measite.minidns.DNSMessage;
 import de.measite.minidns.DNSWorld;
 import de.measite.minidns.Record;
+import de.measite.minidns.record.DLV;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
+import de.measite.minidns.record.NSEC;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.util.NameUtil;
 
@@ -57,7 +60,7 @@ public class DNSSECWorld extends DNSWorld {
         return new Zone(zoneName, address, merge(rrSets));
     }
 
-    private static Record[] merge(SignedRRSet... rrSets) {
+    public static Record[] merge(SignedRRSet... rrSets) {
         List<Record> recordList = new ArrayList<>();
         for (SignedRRSet rrSet : rrSets) {
             recordList.add(rrSet.signature);
@@ -99,11 +102,19 @@ public class DNSSECWorld extends DNSWorld {
     public static Record rrsigRecord(PrivateKey privateKey, RRSIG rrsig, Record... records) {
         byte[] bytes = Verifier.combine(rrsig, Arrays.asList(records));
         return record(records[0].name, rrsig.originalTtl, rrsig(rrsig.typeCovered, rrsig.algorithm, rrsig.labels, rrsig.originalTtl,
-                rrsig.signatureExpiration, rrsig.signatureInception, rrsig.keyTag, rrsig.signerName, 
+                rrsig.signatureExpiration, rrsig.signatureInception, rrsig.keyTag, rrsig.signerName,
                 sign(privateKey, rrsig.algorithm, bytes)));
     }
 
     public static DS ds(String name, byte digestType, DNSKEY dnskey) {
+        return ds(dnskey.getKeyTag(), dnskey.algorithm, digestType, calculateDsDigest(name, digestType, dnskey));
+    }
+
+    public static DLV dlv(String name, byte digestType, DNSKEY dnskey) {
+        return dlv(dnskey.getKeyTag(), dnskey.algorithm, digestType, calculateDsDigest(name, digestType, dnskey));
+    }
+
+    public static byte[] calculateDsDigest(String name, byte digestType, DNSKEY dnskey) {
         DigestCalculator digestCalculator = new AlgorithmMap().getDsDigestCalculator(digestType);
 
         byte[] dnskeyData = dnskey.toByteArray();
@@ -111,9 +122,7 @@ public class DNSSECWorld extends DNSWorld {
         byte[] combined = new byte[dnskeyOwner.length + dnskeyData.length];
         System.arraycopy(dnskeyOwner, 0, combined, 0, dnskeyOwner.length);
         System.arraycopy(dnskeyData, 0, combined, dnskeyOwner.length, dnskeyData.length);
-        byte[] digest = digestCalculator.digest(combined);
-
-        return ds(dnskey.getKeyTag(), dnskey.algorithm, digestType, digest);
+        return digestCalculator.digest(combined);
     }
 
     @SuppressWarnings("deprecation")
@@ -205,5 +214,30 @@ public class DNSSECWorld extends DNSWorld {
             array = tmp;
         }
         return array;
+    }
+
+    public static class AddressedNsecResponse implements PreparedResponse {
+        final InetAddress address;
+        final DNSMessage nsecMessage;
+
+        public AddressedNsecResponse(InetAddress address, DNSMessage nsecMessage) {
+            this.address = address;
+            this.nsecMessage = nsecMessage;
+        }
+
+        @Override
+        public boolean isResponse(DNSMessage request, InetAddress address) {
+            Record nsecRecord = null;
+            for (Record record : nsecMessage.getNameserverRecords()) {
+                if (record.type == Record.TYPE.NSEC)
+                    nsecRecord = record;
+            }
+            return address.equals(this.address) && Verifier.nsecMatches(request.getQuestions()[0].name, nsecRecord.name, ((NSEC) nsecRecord.payloadData).next);
+        }
+
+        @Override
+        public DNSMessage getResponse() {
+            return nsecMessage;
+        }
     }
 }
