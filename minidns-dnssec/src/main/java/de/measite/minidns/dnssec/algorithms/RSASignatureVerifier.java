@@ -8,7 +8,9 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.dnssec;
+package de.measite.minidns.dnssec.algorithms;
+
+import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -45,5 +47,10 @@ class RSASignatureVerifier extends JavaSecSignatureVerifier {
         } catch (Exception e) {
             throw new DNSSECValidationFailedException("Invalid public key!", e);
         }
+    }
+
+    @Override
+    protected byte[] getSignature(byte[] rrsigData) {
+        return rrsigData;
     }
 }

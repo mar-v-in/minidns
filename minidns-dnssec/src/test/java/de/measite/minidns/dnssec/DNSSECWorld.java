@@ -13,6 +13,7 @@ package de.measite.minidns.dnssec;
 import de.measite.minidns.DNSMessage;
 import de.measite.minidns.DNSWorld;
 import de.measite.minidns.Record;
+import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
 import de.measite.minidns.record.DLV;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;

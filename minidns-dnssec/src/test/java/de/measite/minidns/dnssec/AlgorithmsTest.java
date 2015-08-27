@@ -10,6 +10,7 @@
  */
 package de.measite.minidns.dnssec;
 
+import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
 import de.measite.minidns.record.NSEC3;
 import org.junit.Before;
 import org.junit.Test;

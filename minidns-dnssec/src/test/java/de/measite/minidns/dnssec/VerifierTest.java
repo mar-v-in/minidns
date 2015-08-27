@@ -13,6 +13,7 @@ package de.measite.minidns.dnssec;
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
 import de.measite.minidns.Record.TYPE;
+import de.measite.minidns.dnssec.algorithms.JavaSecDigestCalculator;
 import org.junit.Before;
 import org.junit.Test;
 

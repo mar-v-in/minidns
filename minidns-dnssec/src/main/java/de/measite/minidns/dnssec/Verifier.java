@@ -12,6 +12,7 @@ package de.measite.minidns.dnssec;
 
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
+import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
 import de.measite.minidns.record.NSEC;

@@ -8,7 +8,9 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.dnssec;
+package de.measite.minidns.dnssec.algorithms;
+
+import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -17,9 +19,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.DSAPublicKeySpec;
 
-class DSASignatureVerifier extends JavaSecSignatureVerifier {
+class DSASignatureVerifier extends BaseDSASignatureVerifier {
+    private static final int LENGTH = 20;
+
     public DSASignatureVerifier(String algorithm) throws NoSuchAlgorithmException {
-        super("DSA", algorithm);
+        super(LENGTH, "DSA", algorithm);
     }
 
     protected PublicKey getPublicKey(byte[] key) {
@@ -28,7 +32,7 @@ class DSASignatureVerifier extends JavaSecSignatureVerifier {
 
             int t = dis.readUnsignedByte();
 
-            byte[] subPrimeBytes = new byte[20];
+            byte[] subPrimeBytes = new byte[LENGTH];
             dis.read(subPrimeBytes);
             BigInteger subPrime = new BigInteger(1, subPrimeBytes);
 

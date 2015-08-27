@@ -10,6 +10,6 @@
  */
 package de.measite.minidns.dnssec;
 
-interface SignatureVerifier {
-    boolean verify(byte[] content, byte[] signature, byte[] key);
+public interface SignatureVerifier {
+    boolean verify(byte[] content, byte[] rrsigData, byte[] key);
 }
