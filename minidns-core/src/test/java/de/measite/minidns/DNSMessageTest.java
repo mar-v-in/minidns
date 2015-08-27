@@ -278,7 +278,7 @@ public class DNSMessageTest {
         assertEquals(8, rrsig.algorithm);
         assertEquals(1, rrsig.labels);
         assertEquals(86400, rrsig.originalTtl);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("YYYYMMddHHmmss");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         assertEquals("20150629170000", dateFormat.format(rrsig.signatureExpiration));
         assertEquals("20150619160000", dateFormat.format(rrsig.signatureInception));
