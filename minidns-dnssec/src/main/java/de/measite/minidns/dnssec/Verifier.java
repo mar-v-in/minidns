@@ -10,8 +10,12 @@
  */
 package de.measite.minidns.dnssec;
 
+import de.measite.minidns.DNSSECConstants;
 import de.measite.minidns.Question;
 import de.measite.minidns.Record;
+import de.measite.minidns.dnssec.UnverifiedReason.AlgorithmExceptionThrownReason;
+import de.measite.minidns.dnssec.UnverifiedReason.AlgorithmNotSupportedReason;
+import de.measite.minidns.dnssec.UnverifiedReason.NSECDoesNotMatchReason;
 import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.DS;
@@ -29,24 +33,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 class Verifier {
-    public enum VerificationState {
-        UNVERIFIED, FAILED, VERIFIED
-    }
-
     private Logger LOGGER = Logger.getLogger(Verifier.class.getName());
 
     private AlgorithmMap algorithmMap = new AlgorithmMap();
 
-    public VerificationState verify(Record dnskeyRecord, DS ds) {
+    public UnverifiedReason verify(Record dnskeyRecord, DS ds) {
         DNSKEY dnskey = (DNSKEY) dnskeyRecord.getPayload();
         DigestCalculator digestCalculator = algorithmMap.getDsDigestCalculator(ds.digestType);
         if (digestCalculator == null) {
-            LOGGER.fine("Can not verify, no DigestCalculator " + ds.digestType);
-            return VerificationState.UNVERIFIED;
+            return new AlgorithmNotSupportedReason(DNSSECConstants.getDelegationDigestName(ds.digestType), "DS", dnskeyRecord);
         }
 
         byte[] dnskeyData = dnskey.toByteArray();
@@ -58,57 +56,60 @@ class Verifier {
         try {
             digest = digestCalculator.digest(combined);
         } catch (Exception e) {
-            LOGGER.log(Level.FINE, "Can not verify, DigestCalculator " + ds.digestType + " threw exception", e);
-            return VerificationState.UNVERIFIED;
+            return new AlgorithmExceptionThrownReason(ds.digestType, "DS", dnskeyRecord, e);
         }
 
-        if (!Arrays.equals(digest, ds.digest)) return VerificationState.FAILED;
-        return VerificationState.VERIFIED;
+        if (!Arrays.equals(digest, ds.digest)) {
+            throw new DNSSECValidationFailedException(dnskeyRecord, "SEP is not properly signed by parent DS!");
+        }
+        return null;
     }
 
-    public VerificationState verify(List<Record> records, RRSIG rrsig, DNSKEY key) {
+    public UnverifiedReason verify(List<Record> records, RRSIG rrsig, DNSKEY key) {
         SignatureVerifier signatureVerifier = algorithmMap.getSignatureVerifier(rrsig.algorithm);
         if (signatureVerifier == null) {
-            LOGGER.fine("Can not verify, no SignatureVerifier " + rrsig.algorithm);
-            return VerificationState.UNVERIFIED;
+            return new AlgorithmNotSupportedReason(DNSSECConstants.getSignatureAlgorithmName(rrsig.algorithm), "RRSIG", records.get(0));
         }
 
         byte[] combine = combine(rrsig, records);
         if (signatureVerifier.verify(combine, rrsig.signature, key.key)) {
-            return VerificationState.VERIFIED;
+            return null;
         } else {
-            return VerificationState.FAILED;
+            throw new DNSSECValidationFailedException(records, "Signature is invalid.");
         }
     }
 
-    public VerificationState verifyNsec(Record nsecRecord, Question q) {
+    public UnverifiedReason verifyNsec(Record nsecRecord, Question q) {
         NSEC nsec = (NSEC) nsecRecord.payloadData;
         if (nsecRecord.name.equals(q.name) && !Arrays.asList(nsec.types).contains(q.type)) {
             // records with same name but different types exist
-            return VerificationState.VERIFIED;
+            return null;
         } else if (nsecMatches(q.name, nsecRecord.name, nsec.next)) {
-            return VerificationState.VERIFIED;
+            return null;
         }
-        return VerificationState.FAILED;
+        return new NSECDoesNotMatchReason(q, nsecRecord);
     }
 
-    public VerificationState verifyNsec3(String zone, Record nsec3record, Question q) {
+    public UnverifiedReason verifyNsec3(String zone, Record nsec3record, Question q) {
         NSEC3 nsec3 = (NSEC3) nsec3record.payloadData;
         DigestCalculator digestCalculator = algorithmMap.getNsecDigestCalculator(nsec3.hashAlgorithm);
+        if (digestCalculator == null) {
+            return new AlgorithmNotSupportedReason(Integer.toString(nsec3.hashAlgorithm), "NSEC3", nsec3record);
+        }
 
         byte[] bytes = nsec3hash(digestCalculator, nsec3.salt, NameUtil.toByteArray(q.name.toLowerCase()), nsec3.iterations);
         String s = Base32.encodeToString(bytes);
         if (nsec3record.name.equals(s + "." + zone)) {
             if (Arrays.asList(nsec3.types).contains(q.type)) {
-                return VerificationState.FAILED;
+                return new NSECDoesNotMatchReason(q, nsec3record);
             } else {
-                return VerificationState.VERIFIED;
+                return null;
             }
         }
         if (nsecMatches(s, nsec3record.name.split("\\.")[0], Base32.encodeToString(nsec3.nextHashed))) {
-            return VerificationState.VERIFIED;
+            return null;
         }
-        return VerificationState.FAILED;
+        return new NSECDoesNotMatchReason(q, nsec3record);
     }
 
     static byte[] combine(RRSIG rrsig, List<Record> records) {
@@ -208,12 +209,12 @@ class Verifier {
      * Derived from RFC 5155 Section 5
      */
     static byte[] nsec3hash(DigestCalculator digestCalculator, byte[] salt, byte[] data, int iterations) {
-        if (iterations > 0) {
-            data = nsec3hash(digestCalculator, salt, data, iterations - 1);
+        while (iterations-- >= 0) {
+            byte[] combined = new byte[data.length + salt.length];
+            System.arraycopy(data, 0, combined, 0, data.length);
+            System.arraycopy(salt, 0, combined, data.length, salt.length);
+            data = digestCalculator.digest(combined);
         }
-        byte[] combined = new byte[data.length + salt.length];
-        System.arraycopy(data, 0, combined, 0, data.length);
-        System.arraycopy(salt, 0, combined, data.length, salt.length);
-        return digestCalculator.digest(combined);
+        return data;
     }
 }

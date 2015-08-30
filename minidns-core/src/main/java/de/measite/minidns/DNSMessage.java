@@ -478,6 +478,31 @@ public class DNSMessage {
         }
     }
 
+    public DNSMessage(DNSMessage copy) {
+        id = copy.id;
+        query = copy.query;
+        opcode = copy.opcode;
+        authoritativeAnswer = copy.authoritativeAnswer;
+        truncated = copy.truncated;
+        recursionDesired = copy.recursionDesired;
+        recursionAvailable = copy.recursionAvailable;
+        authenticData = copy.authenticData;
+        checkDisabled = copy.checkDisabled;
+        responseCode = copy.responseCode;
+        receiveTimestamp = copy.receiveTimestamp;
+        questions = copy.questions;
+        answers = copy.answers == null ? new Record[0] : copy.answers;
+        nameserverRecords = copy.nameserverRecords == null ? new Record[0] : copy.nameserverRecords;
+        additionalResourceRecords = copy.additionalResourceRecords == null ? new Record[0] : copy.additionalResourceRecords;
+    }
+
+    public DNSMessage(DNSMessage copy, Record[] answers, Record[] nameserverRecords, Record[] additionalResourceRecords) {
+        this(copy);
+        this.answers = answers == null ? new Record[0] : answers;
+        this.nameserverRecords = nameserverRecords == null ? new Record[0] : nameserverRecords;
+        this.additionalResourceRecords = additionalResourceRecords == null ? new Record[0] : additionalResourceRecords;
+    }
+
     int calculateHeaderBitmap() {
         int header = 0;
         if (!query) {
@@ -600,26 +625,6 @@ public class DNSMessage {
             records.add(opt);
             additionalResourceRecords = records.toArray(new Record[records.size()]);
         }
-    }
-
-    public DNSMessage withNewRecords(Record[] answers, Record[] nameserverRecords, Record[] additionalResourceRecords) {
-        DNSMessage copy = new DNSMessage();
-        copy.id = this.id;
-        copy.query = this.query;
-        copy.opcode = this.opcode;
-        copy.authoritativeAnswer = this.authoritativeAnswer;
-        copy.truncated = this.truncated;
-        copy.recursionDesired = this.recursionDesired;
-        copy.recursionAvailable = this.recursionAvailable;
-        copy.authenticData = this.authenticData;
-        copy.checkDisabled = this.checkDisabled;
-        copy.responseCode = this.responseCode;
-        copy.receiveTimestamp = this.receiveTimestamp;
-        copy.questions = this.questions;
-        copy.answers = answers == null ? new Record[0] : answers;
-        copy.nameserverRecords = nameserverRecords == null ? new Record[0] : nameserverRecords;
-        copy.additionalResourceRecords = additionalResourceRecords == null ? new Record[0] : additionalResourceRecords;
-        return copy;
     }
 
     @Override

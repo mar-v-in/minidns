@@ -11,6 +11,9 @@
 package de.measite.minidns.dnssec;
 
 import de.measite.minidns.Question;
+import de.measite.minidns.Record;
+
+import java.util.List;
 
 public class DNSSECValidationFailedException extends RuntimeException {
     private static final long serialVersionUID = 5413184667629832742L;
@@ -25,5 +28,13 @@ public class DNSSECValidationFailedException extends RuntimeException {
 
     public DNSSECValidationFailedException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    public DNSSECValidationFailedException(Record record, String reason) {
+        super("Validation of record " + record + " failed: " + reason);
+    }
+
+    public DNSSECValidationFailedException(List<Record> records, String reason) {
+        super("Validation of " + records.size() + " " + records.get(0).type + " record" + (records.size() > 1 ? "s" : "") + " failed: " + reason);
     }
 }

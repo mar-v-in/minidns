@@ -443,8 +443,7 @@ public class DNSSECClientTest {
                                 record("example.com", a("1.1.1.2")))
                 )
         );
-        DNSMessage nsecMessage = DNSWorld.createEmptyResponseMessage()
-                .withNewRecords(null, DNSSECWorld.merge(
+        DNSMessage nsecMessage = new DNSMessage(DNSWorld.createEmptyResponseMessage(), null, DNSSECWorld.merge(
                                 sign(comZSK, "com", comPrivateZSK, algorithm,
                                         record("example.com", nsec("www.example.com", Record.TYPE.A))),
                                 sign(comZSK, "com", comPrivateZSK, algorithm,
