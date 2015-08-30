@@ -13,10 +13,12 @@ package de.measite.minidns.dnssec.algorithms;
 import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 import de.measite.minidns.dnssec.SignatureVerifier;
 
+import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.SignatureException;
 
 public abstract class JavaSecSignatureVerifier implements SignatureVerifier {
     private final KeyFactory keyFactory;
@@ -42,7 +44,10 @@ public abstract class JavaSecSignatureVerifier implements SignatureVerifier {
             signature.initVerify(publicKey);
             signature.update(content);
             return signature.verify(getSignature(rrsigData));
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException e) {
+            // We checked against this before, it should never happen!
+            throw new IllegalStateException();
+        } catch (InvalidKeyException | SignatureException e) {
             throw new DNSSECValidationFailedException("Validating signature failed", e);
         }
     }

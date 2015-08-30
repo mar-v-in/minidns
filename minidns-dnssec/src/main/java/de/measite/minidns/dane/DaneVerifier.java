@@ -24,6 +24,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import javax.security.cert.CertificateEncodingException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -213,7 +214,7 @@ public class DaneVerifier {
         for (int i = 0; i < certificates.length; i++) {
             try {
                 certs[i] = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(certificates[i].getEncoded()));
-            } catch (Exception e) {
+            } catch (CertificateException | CertificateEncodingException e) {
                 LOGGER.log(Level.WARNING, "Could not convert", e);
             }
         }

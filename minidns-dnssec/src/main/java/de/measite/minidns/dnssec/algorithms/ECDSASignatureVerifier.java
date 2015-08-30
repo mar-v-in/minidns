@@ -14,6 +14,7 @@ import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -22,6 +23,7 @@ import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.EllipticCurve;
+import java.security.spec.InvalidKeySpecException;
 
 abstract class ECDSASignatureVerifier extends BaseDSASignatureVerifier {
     private ECParameterSpec spec;
@@ -51,7 +53,7 @@ abstract class ECDSASignatureVerifier extends BaseDSASignatureVerifier {
             BigInteger y = new BigInteger(1, yBytes);
 
             return getKeyFactory().generatePublic(new ECPublicKeySpec(new ECPoint(x, y), spec));
-        } catch (Exception e) {
+        } catch (IOException | InvalidKeySpecException e) {
             throw new DNSSECValidationFailedException("Invalid public key!", e);
         }
     }

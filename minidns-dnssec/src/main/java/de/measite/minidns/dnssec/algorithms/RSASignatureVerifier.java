@@ -14,9 +14,11 @@ import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 
 class RSASignatureVerifier extends JavaSecSignatureVerifier {
@@ -44,7 +46,7 @@ class RSASignatureVerifier extends JavaSecSignatureVerifier {
             BigInteger modulus = new BigInteger(1, modulusBytes);
 
             return getKeyFactory().generatePublic(new RSAPublicKeySpec(modulus, exponent));
-        } catch (Exception e) {
+        } catch (IOException | InvalidKeySpecException e) {
             throw new DNSSECValidationFailedException("Invalid public key!", e);
         }
     }

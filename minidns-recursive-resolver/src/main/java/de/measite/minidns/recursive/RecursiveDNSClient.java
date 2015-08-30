@@ -169,7 +169,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
     private static InetAddress rootServerInetAddress(String name, int[] addr) {
         try {
             return InetAddress.getByAddress(name, new byte[]{(byte) addr[0], (byte) addr[1], (byte) addr[2], (byte) addr[3]});
-        } catch (Exception e) {
+        } catch (UnknownHostException e) {
             // This should never happen, if it does it's our fault!
             throw new RuntimeException(e);
         }

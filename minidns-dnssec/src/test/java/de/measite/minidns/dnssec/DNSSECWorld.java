@@ -23,13 +23,18 @@ import de.measite.minidns.util.NameUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
+import java.security.SignatureException;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.ArrayList;
@@ -151,7 +156,7 @@ public class DNSSECWorld extends DNSWorld {
             signature.initSign(privateKey);
             signature.update(content);
             return signature.sign();
-        } catch (Exception e) {
+        } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
             throw new RuntimeException(e);
         }
     }
@@ -169,7 +174,7 @@ public class DNSSECWorld extends DNSWorld {
                     rsa.initialize(new RSAKeyGenParameterSpec(length, RSAKeyGenParameterSpec.F4));
                     KeyPair keyPair = rsa.generateKeyPair();
                     return keyPair.getPrivate();
-                } catch (Exception e) {
+                } catch (InvalidAlgorithmParameterException | NoSuchAlgorithmException e) {
                     throw new RuntimeException(e);
                 }
             default:
@@ -199,7 +204,7 @@ public class DNSSECWorld extends DNSWorld {
                     dos.write(exponent);
                     dos.write(toUnsignedByteArray(key.getModulus()));
                     return baos.toByteArray();
-                } catch (Exception e) {
+                } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             default:

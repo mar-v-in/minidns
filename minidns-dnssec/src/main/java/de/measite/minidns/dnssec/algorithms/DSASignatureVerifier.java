@@ -14,10 +14,12 @@ import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.DSAPublicKeySpec;
+import java.security.spec.InvalidKeySpecException;
 
 class DSASignatureVerifier extends BaseDSASignatureVerifier {
     private static final int LENGTH = 20;
@@ -49,7 +51,7 @@ class DSASignatureVerifier extends BaseDSASignatureVerifier {
             BigInteger pubKey = new BigInteger(1, pubKeyBytes);
 
             return getKeyFactory().generatePublic(new DSAPublicKeySpec(pubKey, prime, subPrime, base));
-        } catch (Exception e) {
+        } catch (IOException | InvalidKeySpecException e) {
             throw new DNSSECValidationFailedException("Invalid public key!", e);
         }
     }
