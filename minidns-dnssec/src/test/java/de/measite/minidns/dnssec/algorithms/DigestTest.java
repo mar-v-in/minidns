@@ -8,9 +8,9 @@
  * upon the condition that you accept all of the terms of either
  * the Apache License 2.0, the LGPL 2.1+ or the WTFPL.
  */
-package de.measite.minidns.dnssec;
+package de.measite.minidns.dnssec.algorithms;
 
-import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
+import de.measite.minidns.dnssec.DigestCalculator;
 import de.measite.minidns.record.NSEC3;
 import org.junit.Before;
 import org.junit.Test;
@@ -21,7 +21,7 @@ import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA1;
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA256;
 import static org.junit.Assert.assertEquals;
 
-public class AlgorithmsTest {
+public class DigestTest {
     private AlgorithmMap algorithmMap;
 
     @Before
