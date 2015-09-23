@@ -14,9 +14,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class IntegrationTestHelper {
     private static Set<Class<?>> testClasses;
+    private static Logger LOGGER = Logger.getLogger("Test");
 
     static {
         testClasses = new HashSet<>();
@@ -44,20 +47,18 @@ public class IntegrationTestHelper {
             method.invoke(null);
 
             if (expected != null) {
-
-                System.out.println("[!] " + methodName + " failed: expected exception " + expected + " was not thrown!");
+                LOGGER.logp(Level.WARNING, aClass.getName(), method.getName(), "Test failed: expected exception " + expected + " was not thrown!");
             } else {
-                System.out.println("[+] " + methodName + " suceeded.");
+                LOGGER.logp(Level.INFO, aClass.getName(), method.getName(), "Test suceeded.");
             }
         } catch (InvocationTargetException e) {
             if (expected != null && expected.isAssignableFrom(e.getTargetException().getClass())) {
-                System.out.println("[+] " + methodName + " suceeded.");
+                LOGGER.logp(Level.INFO, aClass.getName(), method.getName(), "Test suceeded.");
             } else {
-                System.out.println("[!] " + methodName + " failed: unexpected exception was thrown: ");
-                e.getTargetException().printStackTrace();
+                LOGGER.logp(Level.WARNING, aClass.getName(), method.getName(), "Test failed: unexpected exception was thrown: ", e.getTargetException());
             }
         } catch (IllegalAccessException | NullPointerException e) {
-            System.out.println("[-] " + methodName + " failed: test is not public static");
+            LOGGER.logp(Level.SEVERE, aClass.getName(), method.getName(), "Test failed: could not invoke test, is it public static?");
         }
     }
 
