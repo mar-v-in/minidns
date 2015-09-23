@@ -408,10 +408,7 @@ public class Record {
      */
     @Override
     public String toString() {
-        if (payloadData == null) {
-            return "RR " + type + "/" + clazz;
-        }
-        return name + ".\t" + ttl + '\t' + clazz + '\t' + type + '\t' + payloadData.toString();
+        return name + ".\t" + ttl + '\t' + clazz + '\t' + type + '\t' + payloadData;
     }
 
     /**

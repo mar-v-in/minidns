@@ -118,7 +118,7 @@ public abstract class UnverifiedReason {
 
         @Override
         public String getReasonString() {
-            return "No signatures were attached to answer on question for " + question.type + " at " + question.name;
+            return "No (currently active) signatures were attached to answer on question for " + question.type + " at " + question.name;
         }
     }
 

@@ -288,6 +288,7 @@ public class DNSMessageTest {
 
         Record[] arr = m.getAdditionalResourceRecords();
         assertEquals(1, arr.length);
+        assertEquals(TYPE.OPT, arr[0].getPayload().getType());
         Record opt = arr[0];
         assertEquals(512, OPT.readEdnsUdpPayloadSize(opt));
         assertEquals(0, OPT.readEdnsVersion(opt));

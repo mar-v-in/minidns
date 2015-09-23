@@ -15,6 +15,8 @@ import de.measite.minidns.DNSMessage;
 import de.measite.minidns.LRUCache;
 import de.measite.minidns.Record;
 import de.measite.minidns.dnssec.DNSSECClient;
+import de.measite.minidns.dnssec.DNSSECMessage;
+import de.measite.minidns.dnssec.UnverifiedReason;
 import de.measite.minidns.record.TLSA;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -93,7 +95,14 @@ public class DaneVerifier {
         String req = "_" + port + "._tcp." + hostName;
         DNSMessage res = client.query(req, Record.TYPE.TLSA);
         if (!res.isAuthenticData()) {
-            LOGGER.info("Got TLSA response from DNS server, but was not signed properly...");
+            String msg = "Got TLSA response from DNS server, but was not signed properly.";
+            if (res instanceof DNSSECMessage) {
+                msg += " Reasons:";
+                for (UnverifiedReason reason : ((DNSSECMessage) res).getUnverifiedReasons()) {
+                    msg += " " + reason;
+                }
+            }
+            LOGGER.info(msg);
             return false;
         }
         TLSA tlsa = null;
