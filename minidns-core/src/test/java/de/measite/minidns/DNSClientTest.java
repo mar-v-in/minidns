@@ -35,7 +35,7 @@ import static org.junit.Assert.assertTrue;
 public class DNSClientTest {
 
     @Test
-    public void oracleOrderTest() {
+    public void testLookupMechanismOrder() {
         List<DNSServerLookupMechanism> expectedOrder = new ArrayList<>();
         expectedOrder.add(0, AndroidUsingExec.INSTANCE);
         expectedOrder.add(1, AndroidUsingReflection.INSTANCE);
@@ -53,7 +53,7 @@ public class DNSClientTest {
     }
 
     @Test
-    public void singleRecordWorldTest() {
+    public void testSingleRecordQuery() {
         DNSClient client = new DNSClient(new LRUCache(0));
         applyStubRecords(client, record("www.example.com", a("127.0.0.1")));
         DNSMessage response = client.query("www.example.com", TYPE.A);
@@ -68,7 +68,7 @@ public class DNSClientTest {
     }
 
     @Test
-    public void returnNullSourceTest() {
+    public void testReturnNullSource() {
         class NullSource extends DNSDataSource {
             boolean queried = false;
 
