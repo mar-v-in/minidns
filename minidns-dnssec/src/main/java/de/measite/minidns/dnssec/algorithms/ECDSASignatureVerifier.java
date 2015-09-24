@@ -13,7 +13,9 @@ package de.measite.minidns.dnssec.algorithms;
 import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
@@ -25,7 +27,7 @@ import java.security.spec.ECPublicKeySpec;
 import java.security.spec.EllipticCurve;
 import java.security.spec.InvalidKeySpecException;
 
-abstract class ECDSASignatureVerifier extends BaseDSASignatureVerifier {
+abstract class ECDSASignatureVerifier extends JavaSecSignatureVerifier {
     private ECParameterSpec spec;
     private int length;
 
@@ -34,9 +36,43 @@ abstract class ECDSASignatureVerifier extends BaseDSASignatureVerifier {
     }
 
     public ECDSASignatureVerifier(ECParameterSpec spec, int length, String algorithm) throws NoSuchAlgorithmException {
-        super(length, "EC", algorithm);
+        super("EC", algorithm);
         this.length = length;
         this.spec = spec;
+    }
+
+    @Override
+    protected byte[] getSignature(byte[] rrsigData) {
+        try {
+            DataInputStream dis = new DataInputStream(new ByteArrayInputStream(rrsigData));
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(bos);
+
+            byte[] r = new byte[length];
+            if (dis.read(r) != r.length) throw new IOException();
+            int rlen = (r[0] < 0) ? length + 1 : length;
+
+            byte[] s = new byte[length];
+            if (dis.read(s) != s.length) throw new IOException();
+            int slen = (s[0] < 0) ? length + 1 : length;
+
+            dos.writeByte(0x30);
+            dos.writeByte(rlen + slen + 4);
+
+            dos.writeByte(0x2);
+            dos.writeByte(rlen);
+            if (rlen > length) dos.writeByte(0);
+            dos.write(r);
+
+            dos.writeByte(0x2);
+            dos.writeByte(slen);
+            if (slen > length) dos.writeByte(0);
+            dos.write(s);
+
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new DNSSECValidationFailedException("Invalid signature!", e);
+        }
     }
 
     @Override
@@ -45,11 +81,11 @@ abstract class ECDSASignatureVerifier extends BaseDSASignatureVerifier {
             DataInputStream dis = new DataInputStream(new ByteArrayInputStream(key));
 
             byte[] xBytes = new byte[length];
-            dis.read(xBytes);
+            if (dis.read(xBytes) != xBytes.length) throw new IOException();
             BigInteger x = new BigInteger(1, xBytes);
 
             byte[] yBytes = new byte[length];
-            dis.read(yBytes);
+            if (dis.read(yBytes) != yBytes.length) throw new IOException();
             BigInteger y = new BigInteger(1, yBytes);
 
             return getKeyFactory().generatePublic(new ECPublicKeySpec(new ECPoint(x, y), spec));

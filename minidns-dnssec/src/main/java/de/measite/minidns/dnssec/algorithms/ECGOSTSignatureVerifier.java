@@ -53,12 +53,12 @@ class ECGOSTSignatureVerifier extends JavaSecSignatureVerifier {
             DataInputStream dis = new DataInputStream(new ByteArrayInputStream(key));
 
             byte[] xBytes = new byte[LENGTH];
-            dis.read(xBytes);
+            if (dis.read(xBytes) != xBytes.length) throw new IOException();
             reverse(xBytes);
             BigInteger x = new BigInteger(1, xBytes);
 
             byte[] yBytes = new byte[LENGTH];
-            dis.read(yBytes);
+            if (dis.read(yBytes) != yBytes.length) throw new IOException();
             reverse(yBytes);
             BigInteger y = new BigInteger(1, yBytes);
 

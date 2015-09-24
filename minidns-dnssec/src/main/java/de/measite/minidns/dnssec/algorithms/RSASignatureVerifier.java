@@ -37,12 +37,12 @@ class RSASignatureVerifier extends JavaSecSignatureVerifier {
             }
 
             byte[] exponentBytes = new byte[exponentLength];
-            dis.read(exponentBytes);
+            if (dis.read(exponentBytes) != exponentBytes.length) throw new IOException();
             bytesRead += exponentLength;
             BigInteger exponent = new BigInteger(1, exponentBytes);
 
             byte[] modulusBytes = new byte[key.length - bytesRead];
-            dis.read(modulusBytes);
+            if (dis.read(modulusBytes) != modulusBytes.length) throw new IOException();
             BigInteger modulus = new BigInteger(1, modulusBytes);
 
             return getKeyFactory().generatePublic(new RSAPublicKeySpec(modulus, exponent));

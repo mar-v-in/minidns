@@ -21,7 +21,9 @@ import de.measite.minidns.record.NSEC;
 import de.measite.minidns.record.RRSIG;
 import de.measite.minidns.util.NameUtil;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -35,6 +37,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.interfaces.DSAPrivateKey;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.ArrayList;
@@ -42,6 +45,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_DSA;
+import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSAMD5;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA1;
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1;
@@ -132,8 +137,7 @@ public class DNSSECWorld extends DNSWorld {
     }
 
     @SuppressWarnings("deprecation")
-    private static byte[] sign(PrivateKey privateKey, byte algorithm, byte[] content) {
-
+    public static byte[] sign(PrivateKey privateKey, byte algorithm, byte[] content) {
         try {
             Signature signature;
             switch (algorithm) {
@@ -150,15 +154,63 @@ public class DNSSECWorld extends DNSWorld {
                 case SIGNATURE_ALGORITHM_RSASHA512:
                     signature = Signature.getInstance("SHA512withRSA");
                     break;
+                case SIGNATURE_ALGORITHM_DSA:
+                case SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1:
+                    signature = Signature.getInstance("SHA1withDSA");
+                    break;
                 default:
                     throw new RuntimeException(algorithm + " algorithm not yet supported by DNSSECWorld");
             }
             signature.initSign(privateKey);
             signature.update(content);
-            return signature.sign();
-        } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
+            byte[] bytes = signature.sign();
+            switch (algorithm) {
+                case SIGNATURE_ALGORITHM_DSA:
+                case SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1:
+                    return convertAsn1ToRFC((DSAPrivateKey) privateKey, bytes);
+
+                case SIGNATURE_ALGORITHM_RSAMD5:
+                case SIGNATURE_ALGORITHM_RSASHA1:
+                case SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1:
+                case SIGNATURE_ALGORITHM_RSASHA256:
+                case SIGNATURE_ALGORITHM_RSASHA512:
+                default:
+                    return bytes;
+            }
+        } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException | IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Convert ASN.1 to RFC 2536.
+     */
+    public static byte[] convertAsn1ToRFC(DSAPrivateKey privateKey, byte[] bytes) throws IOException {
+        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bytes));
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(bos);
+        dos.writeByte(privateKey.getParams().getP().bitLength() / 64 - 8);
+        dis.skipBytes(2);
+        streamAsn1Int(dis, dos, 20);
+        streamAsn1Int(dis, dos, 20);
+        return bos.toByteArray();
+    }
+
+    public static void streamAsn1Int(DataInputStream dis, DataOutputStream dos, int targetLength) throws IOException {
+        byte[] buf;
+        dis.skipBytes(1);
+        byte s_pad = (byte) (dis.readByte() - targetLength);
+        if (s_pad >= 0) {
+            dis.skipBytes(s_pad);
+            s_pad = 0;
+        } else {
+            for (int i = 0; i < (1 - s_pad); i++) {
+                dos.writeByte(0);
+            }
+        }
+        buf = new byte[targetLength + s_pad];
+        if (dis.read(buf) != buf.length) throw new IOException();
+        dos.write(buf);
     }
 
     @SuppressWarnings("deprecation")
@@ -169,16 +221,34 @@ public class DNSSECWorld extends DNSWorld {
             case SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1:
             case SIGNATURE_ALGORITHM_RSASHA256:
             case SIGNATURE_ALGORITHM_RSASHA512:
-                try {
-                    KeyPairGenerator rsa = KeyPairGenerator.getInstance("RSA");
-                    rsa.initialize(new RSAKeyGenParameterSpec(length, RSAKeyGenParameterSpec.F4));
-                    KeyPair keyPair = rsa.generateKeyPair();
-                    return keyPair.getPrivate();
-                } catch (InvalidAlgorithmParameterException | NoSuchAlgorithmException e) {
-                    throw new RuntimeException(e);
-                }
+                return generateRSAPrivateKey(length, RSAKeyGenParameterSpec.F4);
+            case SIGNATURE_ALGORITHM_DSA:
+            case SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1:
+                return generateDSAPrivateKey(length);
             default:
                 throw new RuntimeException(algorithm + " algorithm not yet supported by DNSSECWorld");
+        }
+    }
+
+    public static PrivateKey generateRSAPrivateKey(int length, BigInteger publicExponent) {
+        try {
+            KeyPairGenerator rsa = KeyPairGenerator.getInstance("RSA");
+            rsa.initialize(new RSAKeyGenParameterSpec(length, publicExponent));
+            KeyPair keyPair = rsa.generateKeyPair();
+            return keyPair.getPrivate();
+        } catch (InvalidAlgorithmParameterException | NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static PrivateKey generateDSAPrivateKey(int length) {
+        try {
+            KeyPairGenerator dsa = KeyPairGenerator.getInstance("DSA");
+            dsa.initialize(length);
+            KeyPair keyPair = dsa.generateKeyPair();
+            return keyPair.getPrivate();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -190,25 +260,48 @@ public class DNSSECWorld extends DNSWorld {
             case SIGNATURE_ALGORITHM_RSASHA1_NSEC3_SHA1:
             case SIGNATURE_ALGORITHM_RSASHA256:
             case SIGNATURE_ALGORITHM_RSASHA512:
-                try {
-                    RSAPrivateCrtKey key = (RSAPrivateCrtKey) privateKey;
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    DataOutputStream dos = new DataOutputStream(baos);
-                    byte[] exponent = toUnsignedByteArray(key.getPublicExponent());
-                    if (exponent.length > 255) {
-                        dos.writeByte(0);
-                        dos.writeShort(exponent.length);
-                    } else {
-                        dos.writeByte(exponent.length);
-                    }
-                    dos.write(exponent);
-                    dos.write(toUnsignedByteArray(key.getModulus()));
-                    return baos.toByteArray();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                return getRSAPublicKey((RSAPrivateCrtKey) privateKey);
+            case SIGNATURE_ALGORITHM_DSA:
+            case SIGNATURE_ALGORITHM_DSA_NSEC3_SHA1:
+                return getDSAPublicKey((DSAPrivateKey) privateKey);
             default:
                 throw new RuntimeException(algorithm + " algorithm not yet supported by DNSSECWorld");
+        }
+    }
+
+    private static byte[] getDSAPublicKey(DSAPrivateKey privateKey) {
+        try {
+            BigInteger y = privateKey.getParams().getG().modPow(privateKey.getX(), privateKey.getParams().getP());
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            int t = privateKey.getParams().getP().bitLength() / 64 - 8;
+            dos.writeByte(t);
+            dos.write(toUnsignedByteArray(privateKey.getParams().getQ(), 20));
+            dos.write(toUnsignedByteArray(privateKey.getParams().getP(), t * 8 + 64));
+            dos.write(toUnsignedByteArray(privateKey.getParams().getG(), t * 8 + 64));
+            dos.write(toUnsignedByteArray(y, t * 8 + 64));
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static byte[] getRSAPublicKey(RSAPrivateCrtKey privateKey) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            byte[] exponent = toUnsignedByteArray(privateKey.getPublicExponent());
+            if (exponent.length > 255) {
+                dos.writeByte(0);
+                dos.writeShort(exponent.length);
+            } else {
+                dos.writeByte(exponent.length);
+            }
+            dos.write(exponent);
+            dos.write(toUnsignedByteArray(privateKey.getModulus()));
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -218,6 +311,22 @@ public class DNSSECWorld extends DNSWorld {
             byte[] tmp = new byte[array.length - 1];
             System.arraycopy(array, 1, tmp, 0, tmp.length);
             array = tmp;
+        }
+        return array;
+    }
+
+    private static byte[] toUnsignedByteArray(BigInteger bigInteger, int length) {
+        byte[] array = bigInteger.toByteArray();
+        if (array.length != length) {
+            if (array.length == length + 1 && array[0] == 0) {
+                byte[] tmp = new byte[array.length - 1];
+                System.arraycopy(array, 1, tmp, 0, tmp.length);
+                array = tmp;
+            } else if (array.length < length) {
+                byte[] tmp = new byte[length];
+                System.arraycopy(array, 0, tmp, length - array.length, array.length);
+                array = tmp;
+            }
         }
         return array;
     }

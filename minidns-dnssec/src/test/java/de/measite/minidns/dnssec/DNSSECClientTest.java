@@ -89,7 +89,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void basicValidTest() {
+    public void testBasicValid() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -116,7 +116,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void missingDelegationTest() {
+    public void testMissingDelegation() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -141,7 +141,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unsignedRootTest() {
+    public void testUnsignedRoot() {
         applyZones(client,
                 rootZone(
                         record("com", ds("com", digestType, comKSK)),
@@ -162,7 +162,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void noRootSepTest() {
+    public void testNoRootSecureEntryPoint() {
         client.clearSecureEntryPoints();
         applyZones(client,
                 signedRootZone(
@@ -190,7 +190,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unsignedZoneTest() {
+    public void testUnsignedZone() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -213,7 +213,7 @@ public class DNSSECClientTest {
     }
 
     @Test(expected = DNSSECValidationFailedException.class)
-    public void wrongDnsKeyTest() {
+    public void testInvalidDNSKEY() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -236,7 +236,7 @@ public class DNSSECClientTest {
     }
 
     @Test(expected = DNSSECValidationFailedException.class)
-    public void noDnsKeyTest() {
+    public void testNoDNSKEY() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -257,7 +257,7 @@ public class DNSSECClientTest {
     }
 
     @Test(expected = DNSSECValidationFailedException.class)
-    public void invalidRrSigtest() {
+    public void testInvalidRRSIG() {
         Record invalidRrSig = rrsigRecord(comZSK, "com", comPrivateZSK, algorithm, record("example.com", a("1.1.1.2")));
         byte[] signatureMod = ((RRSIG) invalidRrSig.payloadData).signature;
         signatureMod[signatureMod.length / 2]++;
@@ -283,7 +283,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unknownAlgorithmTest() {
+    public void testUnknownAlgorithm() {
         Date signatureExpiration = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
         Date signatureInception = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
         RRSIG unknownRrsig = rrsig(Record.TYPE.A, 213, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
@@ -312,7 +312,7 @@ public class DNSSECClientTest {
     }
 
     @Test(expected = DNSSECValidationFailedException.class)
-    public void invalidDelegationTest() {
+    public void testInvalidDelegation() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -336,7 +336,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void unknownDelegationDigestTypeTest() {
+    public void testUnknownDelegationDigestType() {
         applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -363,7 +363,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void signatureOutOfDateTest() {
+    public void testSignatureOutOfDate() {
         Date signatureExpiration = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
         Date signatureInception = new Date(System.currentTimeMillis() - 28L * 24L * 60L * 60L * 1000L);
         RRSIG outOfDateSig = rrsig(Record.TYPE.A, algorithm, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
@@ -393,7 +393,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void signatureInFutureTest() {
+    public void testSignatureInFuture() {
         Date signatureExpiration = new Date(System.currentTimeMillis() + 28L * 24L * 60L * 60L * 1000L);
         Date signatureInception = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
         RRSIG outOfDateSig = rrsig(Record.TYPE.A, algorithm, 2, 3600, signatureExpiration, signatureInception, comZSK.getKeyTag(), "com", new byte[0]);
@@ -423,7 +423,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void nsecTest() throws Exception {
+    public void testValidNSEC() throws Exception {
         DNSWorld world = applyZones(client,
                 signedRootZone(
                         sign(rootKSK, "", rootPrivateKSK, algorithm,
@@ -459,7 +459,7 @@ public class DNSSECClientTest {
     }
 
     @Test
-    public void dlvTest() {
+    public void testValidDLV() {
         PrivateKey dlvPrivateKSK = generatePrivateKey(algorithm, 2048);
         DNSKEY dlvKSK = dnskey(DNSKEY.FLAG_ZONE | DNSKEY.FLAG_SECURE_ENTRY_POINT, algorithm, publicKey(algorithm, dlvPrivateKSK));
         PrivateKey dlvPrivateZSK = generatePrivateKey(algorithm, 1024);

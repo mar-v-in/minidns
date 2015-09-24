@@ -12,7 +12,6 @@ package de.measite.minidns.dnssec.algorithms;
 
 import de.measite.minidns.dnssec.DigestCalculator;
 import de.measite.minidns.record.NSEC3;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.math.BigInteger;
@@ -21,16 +20,10 @@ import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA1;
 import static de.measite.minidns.DNSSECConstants.DIGEST_ALGORITHM_SHA256;
 import static org.junit.Assert.assertEquals;
 
-public class DigestTest {
-    private AlgorithmMap algorithmMap;
-
-    @Before
-    public void setUp() throws Exception {
-        algorithmMap = new AlgorithmMap();
-    }
+public class DigestTest extends AlgorithmTest {
 
     @Test
-    public void sha1DsDigestTest() {
+    public void testSha1DsDigest() {
         DigestCalculator dsDigestCalculator = algorithmMap.getDsDigestCalculator(DIGEST_ALGORITHM_SHA1);
         assertEquals("da39a3ee5e6b4b0d3255bfef95601890afd80709", digestHexString(dsDigestCalculator, ""));
         assertEquals("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3", digestHexString(dsDigestCalculator, "test"));
@@ -38,7 +31,7 @@ public class DigestTest {
     }
 
     @Test
-    public void sha256DsDigestTest() {
+    public void testSha256DsDigest() {
         DigestCalculator dsDigestCalculator = algorithmMap.getDsDigestCalculator(DIGEST_ALGORITHM_SHA256);
         assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", digestHexString(dsDigestCalculator, ""));
         assertEquals("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", digestHexString(dsDigestCalculator, "test"));
@@ -46,7 +39,7 @@ public class DigestTest {
     }
 
     @Test
-    public void sha1nsec3DigestTest() {
+    public void testSha1nsec3Digest() {
         DigestCalculator nsecDigestCalculator = algorithmMap.getNsecDigestCalculator(NSEC3.HASH_ALGORITHM_SHA1);
         assertEquals("da39a3ee5e6b4b0d3255bfef95601890afd80709", digestHexString(nsecDigestCalculator, ""));
         assertEquals("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3", digestHexString(nsecDigestCalculator, "test"));
