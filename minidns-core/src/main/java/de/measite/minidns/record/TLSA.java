@@ -59,7 +59,7 @@ public class TLSA implements Data {
         selector = dis.readByte();
         matchingType = dis.readByte();
         certificateAssociation = new byte[length - 3];
-        dis.read(certificateAssociation);
+        if (dis.read(certificateAssociation) != certificateAssociation.length) throw new IOException();
     }
 
     TLSA(byte certUsage, byte selector, byte matchingType, byte[] certificateAssociation) {

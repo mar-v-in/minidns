@@ -43,7 +43,7 @@ public class NSEC implements Data {
         next = NameUtil.parse(dis, data);
 
         typeBitmap = new byte[length - NameUtil.size(next)];
-        dis.read(typeBitmap);
+        if (dis.read(typeBitmap) != typeBitmap.length) throw new IOException();
         types = readTypeBitMap(typeBitmap);
     }
 

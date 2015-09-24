@@ -75,12 +75,12 @@ public class NSEC3 implements Data {
         iterations = dis.readUnsignedShort();
         int saltLength = dis.readUnsignedByte();
         salt = new byte[saltLength];
-        dis.read(salt);
+        if (dis.read(salt) != salt.length) throw new IOException();
         int hashLength = dis.readUnsignedByte();
         nextHashed = new byte[hashLength];
-        dis.read(nextHashed);
+        if (dis.read(nextHashed) != nextHashed.length) throw new IOException();
         typeBitmap = new byte[length - (6 + saltLength + hashLength)];
-        dis.read(typeBitmap);
+        if (dis.read(typeBitmap) != typeBitmap.length) throw new IOException();
         types = NSEC.readTypeBitMap(typeBitmap);
     }
 

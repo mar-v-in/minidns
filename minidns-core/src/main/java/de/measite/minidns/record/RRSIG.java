@@ -85,7 +85,7 @@ public class RRSIG implements Data {
         signerName = NameUtil.parse(dis, data);
         int sigSize = length - NameUtil.size(signerName) - 18;
         signature = new byte[sigSize];
-        dis.read(signature);
+        if (dis.read(signature) != signature.length) throw new IOException();
     }
 
     public RRSIG(TYPE typeCovered, byte algorithm, byte labels, long originalTtl, Date signatureExpiration, 

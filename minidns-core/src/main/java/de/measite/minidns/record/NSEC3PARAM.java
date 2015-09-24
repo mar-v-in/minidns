@@ -48,7 +48,7 @@ public class NSEC3PARAM implements Data {
         iterations = dis.readUnsignedShort();
         int saltLength = dis.readUnsignedByte();
         salt = new byte[saltLength];
-        dis.read(salt);
+        if (dis.read(salt) != salt.length && salt.length != 0) throw new IOException();
     }
 
     NSEC3PARAM(byte hashAlgorithm, byte flags, int iterations, byte[] salt) {

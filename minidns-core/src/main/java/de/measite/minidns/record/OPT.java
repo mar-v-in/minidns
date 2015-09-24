@@ -37,7 +37,7 @@ public class OPT implements Data {
 
     public OPT(DataInputStream dis, byte[] data, int payloadLength) throws IOException {
         encodedOptData = new byte[payloadLength];
-        dis.read(encodedOptData);
+        if (dis.read(encodedOptData) != encodedOptData.length && encodedOptData.length != 0) throw new IOException();
     }
 
     @Override

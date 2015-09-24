@@ -52,7 +52,7 @@ public class DS implements Data {
         algorithm = dis.readByte();
         digestType = dis.readByte();
         digest = new byte[length - 4];
-        dis.read(digest);
+        if (dis.read(digest) != digest.length) throw new IOException();
     }
 
     public DS(int keyTag, byte algorithm, byte digestType, byte[] digest) {
