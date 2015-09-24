@@ -10,6 +10,8 @@
  */
 package de.measite.minidns.integrationtest;
 
+import de.measite.minidns.dnssec.algorithms.AlgorithmMap;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
@@ -17,9 +19,12 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static de.measite.minidns.DNSSECConstants.getSignatureAlgorithmName;
+
 public class IntegrationTestHelper {
     private static Set<Class<?>> testClasses;
-    private static Logger LOGGER = Logger.getLogger("Test");
+    private static Logger LOGGER = Logger.getLogger(IntegrationTestHelper.class.getName());
+    private static AlgorithmMap referenceAlgorithmMap;
 
     static {
         testClasses = new HashSet<>();
@@ -29,6 +34,10 @@ public class IntegrationTestHelper {
     }
 
     public static void main(String[] args) throws IllegalAccessException {
+        // Disable AlgorithmMap logging
+        Logger.getLogger(AlgorithmMap.class.getName()).setLevel(Level.OFF);
+        referenceAlgorithmMap = new AlgorithmMap();
+
         for (final Class<?> aClass : testClasses) {
             for (final Method method : aClass.getDeclaredMethods()) {
                 if (method.isAnnotationPresent(IntegrationTest.class)) {
@@ -39,9 +48,13 @@ public class IntegrationTestHelper {
     }
 
     public static void invokeTest(Method method, Class<?> aClass) {
-        String methodName = aClass.getName() + "." + method.getName() + "()";
         Class<?> expected = method.getAnnotation(IntegrationTest.class).expected();
         if (!Exception.class.isAssignableFrom(expected)) expected = null;
+        byte sigAlg = method.getAnnotation(IntegrationTest.class).requiredSignatureVerifier();
+        if (sigAlg != -1 && referenceAlgorithmMap.getSignatureVerifier(sigAlg) == null) {
+            LOGGER.logp(Level.INFO, aClass.getName(), method.getName(), "Test skipped: " + getSignatureAlgorithmName(sigAlg) + " not available on this platform.");
+            return;
+        }
 
         try {
             method.invoke(null);

@@ -19,4 +19,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface IntegrationTest {
     Class<?> expected() default Class.class;
+    byte requiredSignatureVerifier() default -1;
 }
