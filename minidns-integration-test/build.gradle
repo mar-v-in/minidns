@@ -16,5 +16,5 @@ dependencies {
     compile project(':minidns-core')
     compile project(':minidns-recursive-resolver')
     compile project(':minidns-dnssec')
-    testCompile 'junit:junit:4.11'
+    compile 'junit:junit:4.11'
 }

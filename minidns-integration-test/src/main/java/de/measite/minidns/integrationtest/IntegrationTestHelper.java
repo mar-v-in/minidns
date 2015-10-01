@@ -74,30 +74,4 @@ public class IntegrationTestHelper {
             LOGGER.logp(Level.SEVERE, aClass.getName(), method.getName(), "Test failed: could not invoke test, is it public static?");
         }
     }
-
-    public static void assertEquals(Object a, Object b) {
-        if ((a == null && b != null) || (a != null && !a.equals(b)))
-            throw new IllegalStateException("Test failed: " + a + " != " + b);
-    }
-
-    public static void assertNotEquals(Object a, Object b) {
-        if ((a == null && b == null) || (a != null && a.equals(b)))
-            throw new IllegalStateException("Test failed: " + a + " == " + b);
-    }
-
-    public static void assertTrue(Object actual) {
-        assertEquals(true, actual);
-    }
-
-    public static void assertFalse(Object actual) {
-        assertEquals(false, actual);
-    }
-
-    public static void assertNull(Object actual) {
-        assertEquals(null, actual);
-    }
-
-    public static void assertNotNull(Object actual) {
-        assertNotEquals(null, actual);
-    }
 }

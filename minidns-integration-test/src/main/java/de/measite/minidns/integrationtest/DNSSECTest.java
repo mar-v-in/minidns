@@ -16,8 +16,8 @@ import de.measite.minidns.dnssec.DNSSECClient;
 import de.measite.minidns.dnssec.DNSSECValidationFailedException;
 
 import static de.measite.minidns.DNSSECConstants.SIGNATURE_ALGORITHM_ECDSAP256SHA256;
-import static de.measite.minidns.integrationtest.IntegrationTestHelper.assertFalse;
-import static de.measite.minidns.integrationtest.IntegrationTestHelper.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class DNSSECTest {
 
