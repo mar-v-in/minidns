@@ -237,6 +237,8 @@ public abstract class AbstractDNSClient {
      *
      * This can be used to define a non-default handling for outgoing data. This can be useful to redirect the requests
      * to a proxy or to modify requests after or responses before they are handled by the DNSClient implementation.
+     *
+     * @param dataSource An implementation of DNSDataSource that shall be used.
      */
     public void setDataSource(DNSDataSource dataSource) {
         this.dataSource = dataSource;

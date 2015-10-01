@@ -61,8 +61,10 @@ public class DaneVerifier {
     /**
      * Verifies the certificate chain in an active {@link SSLSocket}. The socket must be connected.
      *
+     * @param socket A connected {@link SSLSocket} whose certificate chain shall be verified using DANE.
      * @return Whether the DANE verification is the only requirement according to the TLSA record.
      * If this method returns {@code false}, additional PKIX validation is required.
+     * @throws CertificateException if the certificate chain provided differs from the one enforced using DANE.
      */
     public boolean verify(SSLSocket socket) throws CertificateException {
         if (!socket.isConnected()) {
@@ -74,8 +76,10 @@ public class DaneVerifier {
     /**
      * Verifies the certificate chain in an active {@link SSLSession}.
      *
+     * @param session An active {@link SSLSession} whose certificate chain shall be verified using DANE.
      * @return Whether the DANE verification is the only requirement according to the TLSA record.
      * If this method returns {@code false}, additional PKIX validation is required.
+     * @throws CertificateException if the certificate chain provided differs from the one enforced using DANE.
      */
     public boolean verify(SSLSession session) throws CertificateException {
         try {
@@ -88,8 +92,12 @@ public class DaneVerifier {
     /**
      * Verifies a certificate chain to be valid when used with the given connection details using DANE.
      *
+     * @param chain A certificate chain that should be verified using DANE.
+     * @param hostName The DNS name of the host this certificate chain belongs to.
+     * @param port The port number that was used to reach the server providing the certificate chain in question.
      * @return Whether the DANE verification is the only requirement according to the TLSA record.
      * If this method returns {@code false}, additional PKIX validation is required.
+     * @throws CertificateException if the certificate chain provided differs from the one enforced using DANE.
      */
     public boolean verifyCertificateChain(X509Certificate[] chain, String hostName, int port) throws CertificateException {
         String req = "_" + port + "._tcp." + hostName;
@@ -174,6 +182,8 @@ public class DaneVerifier {
      * {@link #verifiedConnect(HttpsURLConnection, X509TrustManager)} to inject a custom {@link TrustManager}.
      *
      * @param conn connection to be connected.
+     * @return The {@link HttpsURLConnection} after being connected.
+     * @throws IOException when the connection could not be established.
      */
     public HttpsURLConnection verifiedConnect(HttpsURLConnection conn) throws IOException {
         return verifiedConnect(conn, null);
@@ -187,6 +197,8 @@ public class DaneVerifier {
      *
      * @param conn         connection to be connected.
      * @param trustManager A non-default {@link TrustManager} to be used.
+     * @return The {@link HttpsURLConnection} after being connected.
+     * @throws IOException when the connection could not be established.
      */
     public HttpsURLConnection verifiedConnect(HttpsURLConnection conn, X509TrustManager trustManager) throws IOException {
         try {

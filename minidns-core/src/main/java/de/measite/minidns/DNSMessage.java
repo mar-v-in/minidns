@@ -669,8 +669,10 @@ public class DNSMessage {
     }
 
     /**
-     * Returns this message as a String suitable for terminal output. 
+     * Format the DNSMessage object in a way suitable for terminal output.
      * The format is loosely based on the output provided by {@code dig}.
+     *
+     * @return This message as a String suitable for terminal output.
      */
     public String asTerminalOutput() {
         StringBuilder sb = new StringBuilder(";; ->>HEADER<<-")
