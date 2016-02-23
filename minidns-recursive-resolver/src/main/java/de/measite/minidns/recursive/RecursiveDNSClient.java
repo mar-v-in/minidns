@@ -36,20 +36,31 @@ import java.util.logging.Level;
 public class RecursiveDNSClient extends AbstractDNSClient {
 
     protected static final InetAddress[] ROOT_SERVERS = new InetAddress[]{
-        rootServerInetAddress("a.root-servers.net", new int[]{198,  41,   0,   4}),
-        rootServerInetAddress("b.root-servers.net", new int[]{192, 228,  79, 201}),
-        rootServerInetAddress("c.root-servers.net", new int[]{192,  33,   4,  12}),
-        rootServerInetAddress("d.root-servers.net", new int[]{199,   7,  91 , 13}),
-        rootServerInetAddress("e.root-servers.net", new int[]{192, 203, 230,  10}),
-        rootServerInetAddress("f.root-servers.net", new int[]{192,   5,   5, 241}),
-        rootServerInetAddress("g.root-servers.net", new int[]{192, 112,  36,   4}),
-        rootServerInetAddress("h.root-servers.net", new int[]{128,  63,   2,  53}),
-        rootServerInetAddress("i.root-servers.net", new int[]{192,  36, 148,  17}),
-        rootServerInetAddress("j.root-servers.net", new int[]{192,  58, 128,  30}),
-        rootServerInetAddress("k.root-servers.net", new int[]{193,   0,  14, 129}),
-        rootServerInetAddress("l.root-servers.net", new int[]{199,   7,  83,  42}),
-        rootServerInetAddress("m.root-servers.net", new int[]{202,  12,  27,  33}),
-        };
+            rootServerInetAddress("a.root-servers.net", new short[]{198, 41, 0, 4}),
+            rootServerInetAddress("a.root-servers.net", new int[]{0x2001, 0x503, 0xba3e, 0x0, 0x0, 0x0, 0x2, 0x30}),
+            rootServerInetAddress("b.root-servers.net", new short[]{192, 228, 79, 201}),
+            rootServerInetAddress("b.root-servers.net", new int[]{0x2001, 0x500, 0x84, 0x0, 0x0, 0x0, 0x0, 0xb}),
+            rootServerInetAddress("c.root-servers.net", new short[]{192, 33, 4, 12}),
+            rootServerInetAddress("c.root-servers.net", new int[]{0x2001, 0x500, 0x2, 0x0, 0x0, 0x0, 0x0, 0xc}),
+            rootServerInetAddress("d.root-servers.net", new short[]{199, 7, 91, 13}),
+            rootServerInetAddress("d.root-servers.net", new int[]{0x2001, 0x500, 0x2d, 0x0, 0x0, 0x0, 0x0, 0xd}),
+            rootServerInetAddress("e.root-servers.net", new short[]{192, 203, 230, 10}),
+            rootServerInetAddress("f.root-servers.net", new short[]{192, 5, 5, 241}),
+            rootServerInetAddress("f.root-servers.net", new int[]{0x2001, 0x500, 0x2f, 0x0, 0x0, 0x0, 0x0, 0xf}),
+            rootServerInetAddress("g.root-servers.net", new short[]{192, 112, 36, 4}),
+            rootServerInetAddress("h.root-servers.net", new short[]{128, 63, 2, 53}),
+            rootServerInetAddress("h.root-servers.net", new int[]{0x2001, 0x500, 0x1, 0x0, 0x0, 0x0, 0x0, 0x53}),
+            rootServerInetAddress("i.root-servers.net", new short[]{192, 36, 148, 17}),
+            rootServerInetAddress("i.root-servers.net", new int[]{0x2001, 0x7fe, 0x0, 0x0, 0x0, 0x0, 0x0, 0x53}),
+            rootServerInetAddress("j.root-servers.net", new short[]{192, 58, 128, 30}),
+            rootServerInetAddress("j.root-servers.net", new int[]{0x2001, 0x503, 0xc27, 0x0, 0x0, 0x0, 0x2, 0x30}),
+            rootServerInetAddress("k.root-servers.net", new short[]{193, 0, 14, 129}),
+            rootServerInetAddress("k.root-servers.net", new int[]{0x2001, 0x7fd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}),
+            rootServerInetAddress("l.root-servers.net", new short[]{199, 7, 83, 42}),
+            rootServerInetAddress("l.root-servers.net", new int[]{0x2001, 0x500, 0x3, 0x0, 0x0, 0x0, 0x0, 0x42}),
+            rootServerInetAddress("m.root-servers.net", new short[]{202, 12, 27, 33}),
+            rootServerInetAddress("m.root-servers.net", new int[]{0x2001, 0xdc3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x35}),
+    };
 
     private int maxDepth = 128;
 
@@ -250,9 +261,23 @@ public class RecursiveDNSClient extends AbstractDNSClient {
         }
     }
 
-    private static InetAddress rootServerInetAddress(String name, int[] addr) {
+    private static InetAddress rootServerInetAddress(String name, short[] addr) {
         try {
             return InetAddress.getByAddress(name, new byte[]{(byte) addr[0], (byte) addr[1], (byte) addr[2], (byte) addr[3]});
+        } catch (UnknownHostException e) {
+            // This should never happen, if it does it's our fault!
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static InetAddress rootServerInetAddress(String name, int[] addr) {
+        try {
+            return InetAddress.getByAddress(name, new byte[]{
+                    (byte) (addr[0] >> 8), (byte) addr[0], (byte) (addr[1] >> 8), (byte) addr[1],
+                    (byte) (addr[2] >> 8), (byte) addr[2], (byte) (addr[3] >> 8), (byte) addr[3],
+                    (byte) (addr[4] >> 8), (byte) addr[4], (byte) (addr[5] >> 8), (byte) addr[5],
+                    (byte) (addr[6] >> 8), (byte) addr[6], (byte) (addr[7] >> 8), (byte) addr[7]
+            });
         } catch (UnknownHostException e) {
             // This should never happen, if it does it's our fault!
             throw new RuntimeException(e);
