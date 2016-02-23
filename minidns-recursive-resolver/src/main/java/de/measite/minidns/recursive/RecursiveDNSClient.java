@@ -128,11 +128,11 @@ public class RecursiveDNSClient extends AbstractDNSClient {
 
         // Try non-glued NS
         for (Record record : authorities) {
-            String name = ((NS) record.payloadData).name;
-            if (!q.name.equals(name) || q.type != TYPE.A) {
+            String nsName = ((NS) record.payloadData).name;
+            if (!(q.name.equals(nsName) && (q.type == TYPE.A || q.type == TYPE.AAAA))) {
                 IpResultSet res = null;
                 try {
-                    res = resolveIpRecursive(depth + 1, name);
+                    res = resolveIpRecursive(depth + 1, nsName);
                 } catch (IOException e) {
                     ioExceptions.add(e);
                 }
