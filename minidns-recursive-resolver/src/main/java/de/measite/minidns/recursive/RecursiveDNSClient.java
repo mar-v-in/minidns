@@ -108,7 +108,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
     }
 
     private DNSMessage queryRecursive(int depth, RecursionState recursionState, Question q, InetAddress address) throws IOException {
-        if (depth > maxDepth || !recursionState.recurse(address, q)) return null;
+        if (depth > maxDepth || !recursionState.recurse(address, q)) throw new DNSLoopException();
 
         DNSMessage resMessage = query(q, address);
 
@@ -131,7 +131,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
             for (InetAddress target : gluedNs.getAddresses()) {
                 DNSMessage recursive = null;
                 try {
-                    recursive = queryRecursive(depth, recursionState, q, target);
+                    recursive = queryRecursive(depth + 1, recursionState, q, target);
                 } catch (IOException e) {
                    LOGGER.log(Level.FINER, "Exception while recursing", e);
                    ioExceptions.add(e);
@@ -159,7 +159,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
                 for (InetAddress target : res.getAddresses()) {
                     DNSMessage recursive = null;
                     try {
-                        recursive = queryRecursive(depth, recursionState, q, target);
+                        recursive = queryRecursive(depth + 1, recursionState, q, target);
                     } catch (IOException e) {
                         ioExceptions.add(e);
                         continue;
@@ -198,14 +198,14 @@ public class RecursiveDNSClient extends AbstractDNSClient {
 
         if (ipVersionSetting != IpVersionSetting.v6only) {
             Question question = new Question(name, TYPE.A);
-            DNSMessage aMessage = queryRecursive(depth, recursionState, question);
+            DNSMessage aMessage = queryRecursive(depth + 1, recursionState, question);
             if (aMessage != null) {
                 for (Record answer : aMessage.getAnswers()) {
                     if (answer.isAnswer(question)) {
                         InetAddress inetAddress = inetAddressFromRecord(name, (A) answer.payloadData);
                         res.ipv4Addresses.add(inetAddress);
                     } else if (answer.type == TYPE.CNAME && answer.name.equals(name)) {
-                        return resolveIpRecursive(depth, recursionState, ((CNAME) answer.payloadData).name);
+                        return resolveIpRecursive(depth + 1, recursionState, ((CNAME) answer.payloadData).name);
                     }
                 }
             }
@@ -220,7 +220,7 @@ public class RecursiveDNSClient extends AbstractDNSClient {
                         InetAddress inetAddress = inetAddressFromRecord(name, (AAAA) answer.payloadData);
                         res.ipv6Addresses.add(inetAddress);
                     } else if (answer.type == TYPE.CNAME && answer.name.equals(name)) {
-                        return resolveIpRecursive(depth, recursionState, ((CNAME) answer.payloadData).name);
+                        return resolveIpRecursive(depth + 1, recursionState, ((CNAME) answer.payloadData).name);
                     }
                 }
             }
@@ -329,6 +329,15 @@ public class RecursiveDNSClient extends AbstractDNSClient {
                 break;
             }
             return addresses;
+        }
+    }
+
+    private static class DNSLoopException extends IOException {
+
+        private static final long serialVersionUID = 8316808353008201706L;
+
+        public DNSLoopException() {
+            super("The DNS system either contains a loop or is too deep to be resolved.");
         }
     }
 }
