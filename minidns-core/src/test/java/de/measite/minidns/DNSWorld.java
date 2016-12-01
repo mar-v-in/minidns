@@ -339,8 +339,8 @@ public class DNSWorld extends DNSDataSource {
         return glues;
     }
 
-    @SuppressWarnings("unchecked")
-    public static DNSWorld applyStubRecords(AbstractDNSClient client, Record<Data>... records) {
+    @SafeVarargs
+    public static DNSWorld applyStubRecords(AbstractDNSClient client, Record<? extends Data>... records) {
         DNSWorld world = new DNSWorld();
         client.setDataSource(world);
         for (Record<? extends Data> record : records) {
@@ -354,7 +354,7 @@ public class DNSWorld extends DNSDataSource {
         return world;
     }
 
-    @SuppressWarnings("unchecked")
+    @SafeVarargs
     public static Zone rootZone(Record<? extends Data>... records) {
         List<Record<? extends Data>> listOfRecords = new ArrayList<>(records.length);
         for (Record<? extends Data> record : records) {
@@ -367,7 +367,7 @@ public class DNSWorld extends DNSDataSource {
         return new Zone("", null, records);
     }
 
-    @SuppressWarnings("unchecked")
+    @SafeVarargs
     public static Zone zone(String zoneName, String nsName, String nsIp, Record<? extends Data>... records) {
         List<Record<? extends Data>> listOfRecords = new ArrayList<>(records.length);
         for (Record<? extends Data> record : records) {
@@ -389,15 +389,15 @@ public class DNSWorld extends DNSDataSource {
         return new Zone(zoneName, address, records);
     }
 
-    public static Record<Data> record(String name, long ttl, Data data) {
+    public static <D extends Data> Record<D> record(String name, long ttl, D data) {
         return new Record<>(name, data.getType(), CLASS.IN, ttl, data, false);
     }
 
-    public static Record<Data> record(DNSName name, long ttl, Data data) {
+    public static <D extends Data> Record<D> record(DNSName name, long ttl, D data) {
         return new Record<>(name, data.getType(), CLASS.IN, ttl, data, false);
     }
 
-    public static Record<Data> record(String name, Data data) {
+    public static <D extends Data> Record<D> record(String name, D data) {
         return record(name, 3600, data);
     }
 

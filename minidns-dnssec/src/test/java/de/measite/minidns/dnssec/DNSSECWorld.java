@@ -49,11 +49,13 @@ import java.util.Date;
 import java.util.List;
 
 public class DNSSECWorld extends DNSWorld {
-    public static Zone signedRootZone(SignedRRSet... rrSets) {
+    @SafeVarargs
+    public static Zone signedRootZone(SignedRRSet<? extends Data>... rrSets) {
         return new Zone("", null, merge(rrSets));
     }
 
-    public static Zone signedZone(String zoneName, String nsName, String nsIp, SignedRRSet... records) {
+    @SafeVarargs
+    public static Zone signedZone(String zoneName, String nsName, String nsIp, SignedRRSet<? extends Data>... records) {
         try {
             return signedZone(zoneName, InetAddress.getByAddress(nsName, parseIpV4(nsIp)), records);
         } catch (UnknownHostException e) {
@@ -62,41 +64,45 @@ public class DNSSECWorld extends DNSWorld {
         }
     }
 
-    public static Zone signedZone(String zoneName, InetAddress address, SignedRRSet... rrSets) {
+    @SafeVarargs
+    public static Zone signedZone(String zoneName, InetAddress address, SignedRRSet<? extends Data>... rrSets) {
         return new Zone(zoneName, address, merge(rrSets));
     }
 
-    public static List<Record<? extends Data>> merge(SignedRRSet... rrSets) {
+    @SafeVarargs
+    public static List<Record<? extends Data>> merge(SignedRRSet<? extends Data>... rrSets) {
         List<Record<? extends Data>> recordList = new ArrayList<>();
-        for (SignedRRSet rrSet : rrSets) {
+        for (SignedRRSet<? extends Data> rrSet : rrSets) {
             recordList.add(rrSet.signature);
             recordList.addAll(Arrays.asList(rrSet.records));
         }
         return recordList;
     }
 
-    @SuppressWarnings("unchecked")
-    public static SignedRRSet sign(DNSKEY key, String signerName, PrivateKey privateKey, SignatureAlgorithm algorithm, Record<? extends Data>... records) {
-        return new SignedRRSet(records, rrsigRecord(key, signerName, privateKey, algorithm, records));
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static <D extends Data> SignedRRSet<D> sign(DNSKEY key, String signerName, PrivateKey privateKey, SignatureAlgorithm algorithm, Record<D>... records) {
+        return new SignedRRSet<>(records, rrsigRecord(key, signerName, privateKey, algorithm, records));
     }
 
-    @SuppressWarnings("unchecked")
-    public static SignedRRSet sign(PrivateKey privateKey, RRSIG rrsig, Record<? extends Data>... records) {
-        return new SignedRRSet(records, rrsigRecord(privateKey, rrsig, records));
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static <D extends Data> SignedRRSet<D> sign(PrivateKey privateKey, RRSIG rrsig, Record<D>... records) {
+        return new SignedRRSet<>(records, rrsigRecord(privateKey, rrsig, records));
     }
 
-    public static class SignedRRSet {
-        Record<? extends Data>[] records;
-        Record<? extends Data> signature;
+    public static class SignedRRSet<D extends Data> {
+        Record<D>[] records;
+        Record<RRSIG> signature;
 
-        public SignedRRSet(Record<? extends Data>[] records, Record<? extends Data> signature) {
+        public SignedRRSet(Record<D>[] records, Record<RRSIG> signature) {
             this.records = records;
             this.signature = signature;
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public static Record<? extends Data> rrsigRecord(DNSKEY key, String signerName, PrivateKey privateKey, SignatureAlgorithm algorithm, Record<? extends Data>... records) {
+    @SafeVarargs
+    public static Record<RRSIG> rrsigRecord(DNSKEY key, String signerName, PrivateKey privateKey, SignatureAlgorithm algorithm, Record<? extends Data>... records) {
         Record.TYPE typeCovered = records[0].type;
         String name = records[0].name.ace;
         int labels = name.isEmpty() ? 0 : name.split("\\.").length;
@@ -108,8 +114,9 @@ public class DNSSECWorld extends DNSWorld {
         return rrsigRecord(privateKey, rrsig, records);
     }
 
-    @SuppressWarnings("unchecked")
-    public static Record<? extends Data> rrsigRecord(PrivateKey privateKey, RRSIG rrsig, Record<? extends Data>... records) {
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static Record<RRSIG> rrsigRecord(PrivateKey privateKey, RRSIG rrsig, Record<? extends Data>... records) {
         byte[] bytes = Verifier.combine(rrsig, Arrays.asList(records));
         return record(records[0].name, rrsig.originalTtl, rrsig(rrsig.typeCovered, rrsig.algorithm, rrsig.labels, rrsig.originalTtl,
                 rrsig.signatureExpiration, rrsig.signatureInception, rrsig.keyTag, rrsig.signerName,

@@ -21,7 +21,6 @@ import de.measite.minidns.record.A;
 import de.measite.minidns.record.DNSKEY;
 import de.measite.minidns.record.Data;
 import de.measite.minidns.record.RRSIG;
-
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -94,7 +93,6 @@ public class DNSSECClientTest {
         assertArrayEquals(new byte[]{1, 1, 1, 2}, ((A) answers.get(0).payloadData).getIp());
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testBasicValid() throws IOException {
         applyZones(client,
@@ -122,7 +120,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testNoSEPAtKSK() throws IOException {
         DNSKEY comKSK = dnskey(DNSKEY.FLAG_ZONE, algorithm, publicKey(algorithm, comPrivateKSK));
@@ -151,7 +148,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testSingleZSK() throws IOException {
         applyZones(client,
@@ -178,7 +174,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testMissingDelegation() throws IOException {
         applyZones(client,
@@ -204,7 +199,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testUnsignedRoot() throws IOException {
         applyZones(client,
@@ -226,7 +220,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testNoRootSecureEntryPoint() throws IOException {
         client.clearSecureEntryPoints();
@@ -257,7 +250,6 @@ public class DNSSECClientTest {
         assertTrue(message.getUnverifiedReasons().iterator().next() instanceof UnverifiedReason.NoRootSecureEntryPointReason);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testUnsignedZone() throws IOException {
         applyZones(client,
@@ -281,7 +273,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test(expected = DNSSECValidationFailedException.class)
     public void testInvalidDNSKEY() throws IOException {
         applyZones(client,
@@ -305,7 +296,6 @@ public class DNSSECClientTest {
         client.query("example.com", Record.TYPE.A);
     }
 
-    @SuppressWarnings("unchecked")
     @Test(expected = DNSSECValidationFailedException.class)
     public void testNoDNSKEY() throws IOException {
         applyZones(client,
@@ -327,7 +317,6 @@ public class DNSSECClientTest {
         client.query("example.com", Record.TYPE.A);
     }
 
-    @SuppressWarnings("unchecked")
     @Test(expected = DNSSECValidationFailedException.class)
     public void testInvalidRRSIG() throws IOException {
         Record<? extends Data> invalidRrSig = rrsigRecord(comZSK, "com", comPrivateZSK, algorithm, record("example.com", a("1.1.1.2")));
@@ -354,7 +343,6 @@ public class DNSSECClientTest {
         client.query("example.com", Record.TYPE.A);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testUnknownAlgorithm() throws IOException {
         Date signatureExpiration = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
@@ -384,7 +372,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test(expected = DNSSECValidationFailedException.class)
     public void testInvalidDelegation() throws IOException {
         applyZones(client,
@@ -409,7 +396,6 @@ public class DNSSECClientTest {
         client.query("example.com", Record.TYPE.A);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testUnknownDelegationDigestType() throws IOException {
         applyZones(client,
@@ -437,7 +423,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testSignatureOutOfDate() throws IOException {
         Date signatureExpiration = new Date(System.currentTimeMillis() - 14 * 24 * 60 * 60 * 1000);
@@ -468,7 +453,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testSignatureInFuture() throws IOException {
         Date signatureExpiration = new Date(System.currentTimeMillis() + 28L * 24L * 60L * 60L * 1000L);
@@ -499,7 +483,6 @@ public class DNSSECClientTest {
         checkCorrectExampleMessage(message);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testValidNSEC() throws Exception {
         DNSWorld world = applyZones(client,
@@ -537,7 +520,6 @@ public class DNSSECClientTest {
         assertTrue(message.authenticData);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testValidDLV() throws IOException {
         PrivateKey dlvPrivateKSK = generatePrivateKey(algorithm, 2048);
